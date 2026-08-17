@@ -2,32 +2,79 @@
 const Renderer = (() => {
   const canvas = document.getElementById('game');
   const g = canvas.getContext('2d');
-  const { W, H, COLW, FLOOR_W, FLOOR_H, FOG_DIST } = CONFIG;
-  canvas.width = W; canvas.height = H;
-  const RAYS = W / COLW;
-  const zbuf = new Float32Array(RAYS);
+  const { FOG_DIST } = CONFIG;
+  const DW = 1280, DH = 720;       // UI design space (HUD is authored here)
   const TAU = Math.PI * 2;
+
+  // Native-resolution rendering with dynamic scaling: the canvas matches the
+  // display (devicePixelRatio-aware, capped), and drops render scale if the
+  // frame rate can't keep up.
+  let W = 1280, H = 720, COLW = 2, RAYS = 640, uiScale = 1;
+  let zbuf = new Float32Array(RAYS);
+  let FLOOR_W = 320, FLOOR_H = 180;
+  let renderScale = 1;
+  let scopeOverlay = null;
+
+  function setSize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const cssH = Math.min(window.innerHeight || DH, (window.innerWidth || DW) * 9 / 16);
+    let h = Math.round(cssH * dpr * renderScale);
+    h = Math.max(540, Math.min(1440, h));
+    let w = Math.round(h * 16 / 9);
+    COLW = w > 1920 ? 2 : 1;
+    w = Math.ceil(w / COLW) * COLW;
+    W = w; H = Math.round(w * 9 / 16);
+    canvas.width = W; canvas.height = H;
+    RAYS = W / COLW;
+    zbuf = new Float32Array(RAYS);
+    uiScale = H / DH;
+    FLOOR_W = Math.min(512, Math.round(W / 2.6));
+    FLOOR_H = Math.round(FLOOR_W * 9 / 16);
+    floorCanvas.width = FLOOR_W; floorCanvas.height = FLOOR_H;
+    floorImg = floorCtx.createImageData(FLOOR_W, FLOOR_H);
+    floorPix = new Uint32Array(floorImg.data.buffer);
+    scopeOverlay = Textures.makeScope(W, H);
+  }
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(setSize, 150);
+  });
+
+  // frame-time monitor drives renderScale
+  let frameAcc = 0, frameN = 0, resTimer = 0;
+  function tuneResolution(dt) {
+    frameAcc += dt; frameN++; resTimer += dt;
+    if (resTimer < 2.5) return;
+    const avg = frameAcc / Math.max(1, frameN);
+    frameAcc = 0; frameN = 0; resTimer = 0;
+    if (avg > 0.021 && renderScale > 0.55) {
+      renderScale = Math.max(0.55, renderScale - 0.15);
+      setSize();
+    } else if (avg < 0.0135 && renderScale < 1) {
+      renderScale = Math.min(1, renderScale + 0.15);
+      setSize();
+    }
+  }
 
   const BANNER_FONT = 'Impact, "Arial Black", sans-serif';
   const UI_FONT = '"Segoe UI", system-ui, sans-serif';
 
   // ------------------------------------------------- per-run resources
-  let viewmodels = null, portraitOk = null, portraitHurt = null, scopeOverlay = null;
+  let viewmodels = null, portraitOk = null, portraitHurt = null;
   function onRunStart(character) {
     const sleeve = CHARACTERS[character].sleeve;
     viewmodels = Textures.viewmodels(sleeve);
-    portraitOk = Characters.portrait(character, 128, 'normal');
-    portraitHurt = Characters.portrait(character, 128, 'hurt');
-    if (!scopeOverlay) scopeOverlay = Textures.makeScope(W, H);
+    portraitOk = Characters.portrait(character, 256, 'normal');
+    portraitHurt = Characters.portrait(character, 256, 'hurt');
     swayA = 0; swayP = 0; prevA = null; prevPitch = 0;
   }
 
   // --------------------------------------------- floor & ceiling caster
   const floorCanvas = document.createElement('canvas');
-  floorCanvas.width = FLOOR_W; floorCanvas.height = FLOOR_H;
   const floorCtx = floorCanvas.getContext('2d');
-  const floorImg = floorCtx.createImageData(FLOOR_W, FLOOR_H);
-  const floorPix = new Uint32Array(floorImg.data.buffer);
+  let floorImg = null, floorPix = null;
+  setSize();                       // initial native-resolution setup
   const texF = Textures.floorData, texC = Textures.ceilData, texCL = Textures.ceilLightData;
   const texF32 = new Uint32Array(texF.data.buffer);
   const texC32 = new Uint32Array(texC.data.buffer);
@@ -143,8 +190,8 @@ const Renderer = (() => {
       const lineH = H / dist;
       const y0 = horizon - lineH * (1 - eye);
       const tex = (hit.side ? Textures.wallsDark : Textures.walls)[hit.tile] || Textures.walls[1];
-      const tx = Math.min(63, Math.max(0, (hit.wallX * 64) | 0));
-      g.drawImage(tex, tx, 0, 1, 64, r * COLW, y0, COLW, lineH);
+      const tx = Math.min(127, Math.max(0, (hit.wallX * 128) | 0));
+      g.drawImage(tex, tx, 0, 1, 128, r * COLW, y0, COLW, lineH);
       let shade = (dist - muzzleGlow) / FOG_DIST;
       if (shade > 0.86) shade = 0.86;
       if (shade > 0.03) {
@@ -197,6 +244,7 @@ const Renderer = (() => {
     }
 
     bills.sort(billCmp);
+    g.imageSmoothingEnabled = true;
 
     for (const b of bills) {
       const screenX = (W / 2) * (1 + b.tX / b.tY);
@@ -301,6 +349,9 @@ const Renderer = (() => {
       g.drawImage(scopeOverlay, 0, 0);
       return;
     }
+    g.save();
+    g.scale(uiScale, uiScale);     // weapon & shells live in UI design space
+    g.imageSmoothingEnabled = true;
 
     // weapon sway from turning
     if (prevA === null) { prevA = p.a; prevPitch = p.pitch; }
@@ -323,21 +374,21 @@ const Renderer = (() => {
     const scale = 1.12 + ads * 0.1;
     // left-edge coordinates for both anchors; the ADS anchor puts the
     // weapon's sight pixel exactly on screen center
-    const hipX = W / 2 + 150 - (vm.c.width * scale) / 2;
-    const hipY = H - vm.c.height * scale + 46;
-    const adsX = W / 2 - vm.sightX * scale;
-    const adsY = H / 2 - vm.sightY * scale + recoilY * 0.4;
+    const hipX = DW / 2 + 150 - (vm.w * scale) / 2;
+    const hipY = DH - vm.h * scale + 46;
+    const adsX = DW / 2 - vm.sightX * scale;
+    const adsY = DH / 2 - vm.sightY * scale + recoilY * 0.4;
     const drawX = hipX + (adsX - hipX) * ads - swayA * (1 - ads * 0.7) + bob;
     const y = hipY + (adsY - hipY) * ads - swayP * (1 - ads * 0.7) + bob2 + idle
       + recoilY + reloadDip + swapDip + (p.sprinting ? 60 : 0) + (p.slideT > 0 ? 40 : 0);
 
     g.save();
     if (p.sprinting || p.slideT > 0) {
-      g.translate(drawX + vm.c.width * scale / 2, y + 260);
+      g.translate(drawX + vm.w * scale / 2, y + 260);
       g.rotate(p.slideT > 0 ? 0.22 : 0.35);
-      g.translate(-(drawX + vm.c.width * scale / 2), -(y + 260));
+      g.translate(-(drawX + vm.w * scale / 2), -(y + 260));
     }
-    g.drawImage(vm.c, drawX, y, vm.c.width * scale, vm.c.height * scale);
+    g.drawImage(vm.c, drawX, y, vm.w * scale, vm.h * scale);
     if (p.recoil > 0.55) {
       const ms = 96 + Math.random() * 44;
       g.drawImage(Textures.muzzle,
@@ -358,6 +409,7 @@ const Renderer = (() => {
       g.restore();
     }
     g.globalAlpha = 1;
+    g.restore();                   // uiScale wrap
   }
 
   // -------------------------------------------------------------- HUD
@@ -392,7 +444,7 @@ const Renderer = (() => {
   let mapBase = null;
   function buildMapBase() {
     mapBase = document.createElement('canvas');
-    const SC = 8;
+    const SC = 16;
     mapBase.width = GameMap.W * SC; mapBase.height = GameMap.H * SC;
     const mg = mapBase.getContext('2d');
     mg.fillStyle = 'rgba(16,20,28,0.95)';
@@ -409,8 +461,8 @@ const Renderer = (() => {
     if (!mapBase) buildMapBase();
     const S = Game.S, p = S.player;
     const R = 76;                     // radius on screen
-    const cx = W - R - 22, cy = R + 22;
-    const SC = 8;
+    const cx = DW - R - 22, cy = R + 22;
+    const SC = 16;                    // must match buildMapBase
     const range = 9;                  // world tiles visible
 
     g.save();
@@ -467,7 +519,7 @@ const Renderer = (() => {
 
   function drawCompass() {
     const S = Game.S, p = S.player;
-    const cw = 430, cx = W / 2, y = 26;
+    const cw = 430, cx = DW / 2, y = 26;
     panel(cx - cw / 2, y - 16, cw, 30, 15);
     g.save();
     g.beginPath(); g.rect(cx - cw / 2 + 8, y - 16, cw - 16, 30); g.clip();
@@ -475,7 +527,7 @@ const Renderer = (() => {
     const degPer = 3.4;
     const bearing = ((p.a + Math.PI / 2) * 180 / Math.PI % 360 + 360) % 360;
     const marks = [
-      [0, 'N'], [45, 'NE'], [90, 'E'], [135, 'SE'], [180, 'S'], [225, 'SW'], [270, 'W'], [315, 'NW'],
+      [0, 'N'], [45, 'NE'], [90, 'E'], [135, 'SE'], [180, 'S'], [225, 'SW'], [270, 'DW'], [315, 'NW'],
     ];
     for (const [deg, txt] of marks) {
       let rel = deg - bearing;
@@ -526,8 +578,11 @@ const Renderer = (() => {
   function drawHud(dt) {
     const S = Game.S, p = S.player;
     const sp = WEAPONS[p.weapon];
-    const cx = W / 2, cy = H / 2;
+    const cx = DW / 2, cy = DH / 2;
     const scoped = sp.scope && p.adsT > 0.92;
+    g.save();
+    g.scale(uiScale, uiScale);     // HUD is authored in 1280x720 design space
+    g.imageSmoothingEnabled = true;
 
     // ---------- crosshair
     if (!scoped && p.adsT < 0.9 && !p.sprinting && p.slideT <= 0 && !S.shopOpen) {
@@ -560,7 +615,7 @@ const Renderer = (() => {
     }
 
     // ---------- bottom-left: portrait + health/armor
-    const hx = 24, hy = H - 96;
+    const hx = 24, hy = DH - 96;
     panel(hx, hy, 292, 74, 12);
     const hurt = S.time - p.lastHurt < 0.8 || p.hp < 30;
     g.save();
@@ -585,7 +640,7 @@ const Renderer = (() => {
     }
 
     // ---------- bottom-right: weapon
-    const ax = W - 24, ay = H - 96;
+    const ax = DW - 24, ay = DH - 96;
     panel(ax - 292, ay, 292, 74, 12);
     label(sp.name, ax - 14, ay + 24, 15, '#fff', 'right', 800);
     const ammoStr = p.reloading > 0 ? 'RELOADING'
@@ -644,7 +699,7 @@ const Renderer = (() => {
     // ---------- kill feed (under minimap)
     let fy = 190;
     for (const f of S.feed) {
-      label(f.text, W - 24, fy, 12.5, 'rgba(255,255,255,0.92)', 'right', 700, UI_FONT,
+      label(f.text, DW - 24, fy, 12.5, 'rgba(255,255,255,0.92)', 'right', 700, UI_FONT,
         Math.min(1, f.t));
       fy += 19;
     }
@@ -655,7 +710,7 @@ const Renderer = (() => {
       const age = m.max - m.t;
       const scaleIn = age < 0.12 ? 0.7 + (age / 0.12) * 0.3 : 1;
       g.save();
-      g.translate(W * 0.72, my);
+      g.translate(DW * 0.72, my);
       g.scale(scaleIn, scaleIn);
       label(m.label, 0, 0, 21, m.color, 'center', 800, BANNER_FONT, Math.min(1, m.t / 0.5));
       g.restore();
@@ -677,9 +732,9 @@ const Renderer = (() => {
       const outT = Math.min(1, a.t / 0.35);
       const alpha = Math.min(inT, outT);
       const rise = (1 - inT) * 26;
-      label(a.big, cx, H * 0.3 + rise, 54, '#f6c945', 'center', 400, BANNER_FONT, alpha);
+      label(a.big, cx, DH * 0.3 + rise, 54, '#f6c945', 'center', 400, BANNER_FONT, alpha);
       if (a.small)
-        label(a.small, cx, H * 0.3 + 38 + rise, 20, '#fff', 'center', 700, UI_FONT, alpha);
+        label(a.small, cx, DH * 0.3 + 38 + rise, 20, '#fff', 'center', 700, UI_FONT, alpha);
     }
     if (S.intermission > 0 && !S.shopOpen) {
       label(`NEXT WAVE IN ${Math.ceil(S.intermission)}`, cx, 122, 20, '#7fd4ff', 'center', 800);
@@ -704,34 +759,35 @@ const Renderer = (() => {
     const hurtA = Math.max(0, 1 - p.hp / 55) * 0.5
       + Math.max(0, 0.8 - (S.time - p.lastHurt)) * 0.4 + beat;
     if (hurtA > 0.02) {
-      const vg = g.createRadialGradient(cx, cy, H * 0.3, cx, cy, H * 0.72);
+      const vg = g.createRadialGradient(cx, cy, DH * 0.3, cx, cy, DH * 0.72);
       vg.addColorStop(0, 'rgba(150,0,0,0)');
       vg.addColorStop(1, `rgba(150,0,0,${Math.min(0.85, hurtA)})`);
-      g.fillStyle = vg; g.fillRect(0, 0, W, H);
+      g.fillStyle = vg; g.fillRect(0, 0, DW, DH);
     }
     if (S.flash > 0) {
       g.fillStyle = `rgba(255,240,200,${S.flash})`;
-      g.fillRect(0, 0, W, H);
+      g.fillRect(0, 0, DW, DH);
     }
     if (S.screenFlash) {
       g.fillStyle = `rgba(${S.screenFlash.color},${Math.min(1, S.screenFlash.a)})`;
-      g.fillRect(0, 0, W, H);
+      g.fillRect(0, 0, DW, DH);
     }
 
     if (S.shopOpen) drawShop();
+    g.restore();                   // uiScale wrap
   }
 
   // ------------------------------------------------------------- shop
   function drawShop() {
     const S = Game.S;
     g.fillStyle = 'rgba(6,8,12,0.82)';
-    g.fillRect(0, 0, W, H);
-    label('THE SCHOOL STORE', W / 2, 96, 42, '#f6c945', 'center', 400, BANNER_FONT);
-    label(`CASH  $${S.cash}`, W / 2, 128, 18, '#9fd06a', 'center', 800);
+    g.fillRect(0, 0, DW, DH);
+    label('THE SCHOOL STORE', DW / 2, 96, 42, '#f6c945', 'center', 400, BANNER_FONT);
+    label(`CASH  $${S.cash}`, DW / 2, 128, 18, '#9fd06a', 'center', 800);
     const items = Game.shopItems();
     const cols = 3, cw = 330, chh = 96, gap = 18;
     const total = Math.ceil(items.length / cols);
-    const x0 = W / 2 - (cols * cw + (cols - 1) * gap) / 2;
+    const x0 = DW / 2 - (cols * cw + (cols - 1) * gap) / 2;
     const y0 = 170;
     items.forEach((item, i) => {
       const col = i % cols, row = (i / cols) | 0;
@@ -752,7 +808,7 @@ const Renderer = (() => {
       label(item.owned ? 'OWNED' : `$${item.price}`, x + cw - 14, y + 30, 16,
         item.owned ? 'rgba(160,220,160,0.9)' : afford ? '#9fd06a' : '#d46a5f', 'right', 800);
     });
-    label('PRESS NUMBER TO BUY  ·  TAB TO CLOSE', W / 2, y0 + total * (chh + gap) + 26,
+    label('PRESS NUMBER TO BUY  ·  TAB TO CLOSE', DW / 2, y0 + total * (chh + gap) + 26,
       14, 'rgba(255,255,255,0.7)', 'center', 700);
   }
 
@@ -765,7 +821,7 @@ const Renderer = (() => {
       const at = S.attract;
       renderWorld({
         x: at.x, y: at.y, a: at.a, fov: 72 * Math.PI / 180,
-        horizon: H / 2 + Math.sin(at.a * 2) * 14, eye: 0.5, roll: 0,
+        horizon: H / 2 + Math.sin(at.a * 2) * 14 * uiScale, eye: 0.5, roll: 0,
       }, dt, null);
       g.fillStyle = 'rgba(5,6,10,0.5)';
       g.fillRect(0, 0, W, H);
@@ -773,6 +829,7 @@ const Renderer = (() => {
     }
     if (!S.player) return;
     const p = S.player;
+    if (S.mode === 'playing') tuneResolution(dt);
 
     const sp = WEAPONS[p.weapon];
     const baseFov = Game.settings.fov * Math.PI / 180;
@@ -781,11 +838,12 @@ const Renderer = (() => {
     if (p.sprinting) fov += 6 * Math.PI / 180;
     if (p.slideT > 0) fov += 9 * Math.PI / 180;
 
+    // pitch/bob/shake are tuned in design pixels; scale to native
     const shakeAmp = Game.settings.shake ? S.shake : 0;
-    const shakeX = (Math.random() - 0.5) * shakeAmp;
-    const shakeY = (Math.random() - 0.5) * shakeAmp;
-    const bobY = Math.sin(p.bobPhase * 2) * 4 * p.bobMag;
-    const horizon = H / 2 + p.pitch + p.recoilPitch + bobY + shakeY;
+    const shakeX = (Math.random() - 0.5) * shakeAmp * uiScale;
+    const shakeY = (Math.random() - 0.5) * shakeAmp * uiScale;
+    const bobY = Math.sin(p.bobPhase * 2) * 4 * p.bobMag * uiScale;
+    const horizon = H / 2 + (p.pitch + p.recoilPitch) * uiScale + bobY + shakeY;
 
     g.save();
     g.translate(shakeX, 0);
@@ -804,7 +862,7 @@ const Renderer = (() => {
     if (S.debug) {
       fpsN++; fpsT += dt;
       if (fpsT > 0.5) { fps = Math.round(fpsN / fpsT); fpsN = 0; fpsT = 0; }
-      label(`${fps} FPS`, W - 16, H - 14, 12, '#7fd4ff', 'right', 700);
+      label(`${fps} FPS · ${W}×${H}`, W - 16, H - 14, 12 * uiScale, '#7fd4ff', 'right', 700);
     }
   }
 

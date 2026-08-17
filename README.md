@@ -37,10 +37,12 @@ Pick your dumbass, click **DEPLOY**, and click the screen to grab mouse lock.
 
 ## What's in it
 
-- **Beavis or Butt-Head** — faithful hand-drawn portraits, per-character
-  traits (Beavis: faster fire and reloads; Butt-Head: +25 HP and faster
-  regen), and their own speech-synthesis one-liners for kills, headshots,
-  killstreaks, shopping, and dying.
+- **Beavis or Butt-Head** — reference-accurate hand-drawn portraits
+  (the towering blond pompadour, brow ridge, and underbite grin; the tall
+  skull, hooded eyes, giant nostrils, and gums-and-braces smile),
+  per-character traits (Beavis: faster fire and reloads; Butt-Head:
+  +25 HP and faster regen), and their own speech-synthesis one-liners
+  for kills, headshots, killstreaks, shopping, and dying.
 - **Five guns + grenades** — BB-9 Blaster, Scorcher SMG, Thrasher AK, Nacho
   Boomstick, and the Dillweed .50 bolt sniper with a full scope overlay.
   Magazines, reserves, damage falloff, spread, recoil, tracers, shell
@@ -71,10 +73,17 @@ Pick your dumbass, click **DEPLOY**, and click the screen to grab mouse lock.
 
 ## Engine notes
 
-- DDA raycaster drawing textured 2px wall columns at 1280×720, plus a true
-  perspective **floor and ceiling caster** (typed-array pixel pass with
-  distance fog and ceiling light panels), z-buffered billboard sprites with
-  shadows, and eye-height support for crouch/slide.
+- **Native-resolution rendering**: the canvas matches your display
+  (devicePixelRatio-aware, up to 1440p internal) with per-pixel wall
+  columns on most screens, and a **dynamic resolution scaler** that drops
+  internal resolution automatically if the frame rate can't hold, then
+  climbs back. All art (walls, six enemy types, five weapon viewmodels,
+  pickups) is generated at 2× and the HUD is vector-drawn at native
+  resolution, so everything stays crisp.
+- DDA raycaster with a true perspective **floor and ceiling caster**
+  (typed-array pixel pass with distance fog and ceiling light panels),
+  z-buffered billboard sprites with shadows, and eye-height support for
+  crouch/slide.
 - Enemies pathfind on a shared BFS flow field recomputed a few times per
   second, with local separation, line-of-sight chases, standoff orbiting,
   and windup-telegraphed attacks.

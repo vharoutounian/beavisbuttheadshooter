@@ -12,7 +12,7 @@ const UI = (() => {
   // ------------------------------------------------ character select
   const cards = { beavis: $('card-beavis'), butthead: $('card-butthead') };
   for (const who of ['beavis', 'butthead']) {
-    const bustC = Characters.bust(who, 230, 250);
+    const bustC = Characters.bust(who, 460, 500);  // 2x for crisp downscale
     cards[who].querySelector('.face').appendChild(bustC);
     cards[who].addEventListener('click', () => {
       selectCharacter(who);

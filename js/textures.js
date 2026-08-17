@@ -7,11 +7,21 @@ const Textures = (() => {
   }
   const ctxOf = c => c.getContext('2d');
 
-  // ================================================================ walls
-  const TS = 64;
+  // Art is authored in design units and rendered at 2x for crisp display.
+  const TEXR = 2;
+  function hiRes(w, h, draw) {
+    const c = mk(w * TEXR, h * TEXR);
+    const g = ctxOf(c);
+    g.scale(TEXR, TEXR);
+    g.lineJoin = 'round';
+    draw(g);
+    return c;
+  }
 
-  function brick() {
-    const c = mk(TS, TS), g = ctxOf(c);
+  // ================================================================ walls
+  const TS = 64;                 // design size; canvases are TS*TEXR square
+
+  const brick = () => hiRes(TS, TS, g => {
     g.fillStyle = '#6e4436'; g.fillRect(0, 0, TS, TS);
     for (let row = 0; row < 8; row++) {
       const off = (row % 2) * 8;
@@ -25,11 +35,9 @@ const Textures = (() => {
     }
     g.fillStyle = 'rgba(0,0,0,0.18)';
     for (let i = 0; i < 46; i++) g.fillRect((i * 13) % TS, (i * 29) % TS, 2, 2);
-    return c;
-  }
+  });
 
-  function lockers() {
-    const c = mk(TS, TS), g = ctxOf(c);
+  const lockers = () => hiRes(TS, TS, g => {
     g.fillStyle = '#2e4750'; g.fillRect(0, 0, TS, TS);
     for (let i = 0; i < 4; i++) {
       const x = i * 16;
@@ -46,11 +54,9 @@ const Textures = (() => {
     }
     g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(0, 60, TS, 4);
     g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(0, 0, TS, 2);
-    return c;
-  }
+  });
 
-  function chalkboard() {
-    const c = mk(TS, TS), g = ctxOf(c);
+  const chalkboard = () => hiRes(TS, TS, g => {
     g.fillStyle = '#c8a678'; g.fillRect(0, 0, TS, TS);
     g.fillStyle = 'rgba(0,0,0,0.07)';
     for (let y = 0; y < TS; y += 8) g.fillRect(0, y, TS, 1);
@@ -68,11 +74,9 @@ const Textures = (() => {
     g.stroke();
     g.fillStyle = '#f5f0e0'; g.fillRect(9, 49, 9, 2);
     g.fillStyle = '#e0b0b0'; g.fillRect(21, 49, 7, 2);
-    return c;
-  }
+  });
 
-  function gymMetal() {
-    const c = mk(TS, TS), g = ctxOf(c);
+  const gymMetal = () => hiRes(TS, TS, g => {
     g.fillStyle = '#4e5258'; g.fillRect(0, 0, TS, TS);
     for (let y = 0; y < TS; y += 16) {
       const grad = g.createLinearGradient(0, y, 0, y + 12);
@@ -84,11 +88,9 @@ const Textures = (() => {
     for (let y = 6; y < TS; y += 16)
       for (let x = 6; x < TS; x += 12) { g.beginPath(); g.arc(x, y, 1.6, 0, 7); g.fill(); }
     g.fillStyle = 'rgba(255,255,255,0.05)'; g.fillRect(0, 0, 2, TS);
-    return c;
-  }
+  });
 
-  function posterWall() {
-    const c = mk(TS, TS), g = ctxOf(c);
+  const posterWall = () => hiRes(TS, TS, g => {
     g.fillStyle = '#b39a6c'; g.fillRect(0, 0, TS, TS);
     g.fillStyle = 'rgba(0,0,0,0.08)';
     for (let y = 0; y < TS; y += 10) g.fillRect(0, y, TS, 1);
@@ -108,11 +110,9 @@ const Textures = (() => {
     for (let i = 0; i < 5; i++) g.fillRect(-6, -9 + i * 4, 13, 1.4);
     g.restore();
     g.fillStyle = 'rgba(0,0,0,0.2)'; g.fillRect(0, 58, TS, 6);
-    return c;
-  }
+  });
 
-  function exitDoor() {
-    const c = mk(TS, TS), g = ctxOf(c);
+  const exitDoor = () => hiRes(TS, TS, g => {
     g.fillStyle = '#5b5f66'; g.fillRect(0, 0, TS, TS);
     const grad = g.createLinearGradient(6, 0, 58, 0);
     grad.addColorStop(0, '#7d838c'); grad.addColorStop(0.5, '#6b7178'); grad.addColorStop(1, '#585d64');
@@ -127,11 +127,9 @@ const Textures = (() => {
     g.fillStyle = '#c0392b'; g.fillRect(20, 0, 24, 9);    // EXIT sign
     g.fillStyle = '#ffdddd'; g.font = 'bold 7px sans-serif'; g.textAlign = 'center';
     g.fillText('EXIT', 32, 7);
-    return c;
-  }
+  });
 
-  function cafWall() {
-    const c = mk(TS, TS), g = ctxOf(c);
+  const cafWall = () => hiRes(TS, TS, g => {
     g.fillStyle = '#8a9a8c'; g.fillRect(0, 0, TS, TS);
     for (let y = 0; y < TS; y += 16)
       for (let x = 0; x < TS; x += 16) {
@@ -142,8 +140,7 @@ const Textures = (() => {
     g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(0, 30, TS, 3);  // grease line
     g.fillStyle = 'rgba(120,80,20,0.18)';
     for (let i = 0; i < 12; i++) g.fillRect((i * 17) % TS, 33 + (i * 11) % 28, 3, 2);
-    return c;
-  }
+  });
 
   function darken(src, amt) {
     const c = mk(src.width, src.height), g = ctxOf(c);
@@ -210,7 +207,8 @@ const Textures = (() => {
     const frames = { walk: [], attack: [], pain: null, death: [] };
 
     function base(draw) {
-      const c = mk(96, 144), g = ctxOf(c);
+      const c = mk(96 * TEXR, 144 * TEXR), g = ctxOf(c);
+      g.scale(TEXR, TEXR);
       g.lineJoin = 'round'; g.lineCap = 'round';
       draw(g);
       return c;
@@ -530,18 +528,15 @@ const Textures = (() => {
     enemySpritesElitePain[k] = tintFrames(enemySpritesElite[k], '#ff4040', 0.5);
 
   // ============================================================== pickups
-  function pickupAmmo() {
-    const c = mk(48, 48), g = ctxOf(c);
+  const pickupAmmo = () => hiRes(48, 48, g => {
     g.fillStyle = '#4a5a30'; g.fillRect(5, 15, 38, 26);
     g.fillStyle = '#3a4826'; g.fillRect(5, 15, 38, 7);
     g.strokeStyle = '#20281a'; g.lineWidth = 2; g.strokeRect(5, 15, 38, 26);
     g.fillStyle = '#d8cf7a'; g.font = 'bold 10px sans-serif'; g.textAlign = 'center';
     g.fillText('AMMO', 24, 34);
     g.fillStyle = '#8a8054'; g.fillRect(9, 17, 6, 3); g.fillRect(33, 17, 6, 3);
-    return c;
-  }
-  function pickupNachos() {
-    const c = mk(48, 48), g = ctxOf(c);
+  });
+  const pickupNachos = () => hiRes(48, 48, g => {
     g.fillStyle = '#c0392b';
     g.beginPath(); g.moveTo(6, 26); g.lineTo(42, 26); g.lineTo(38, 42); g.lineTo(10, 42);
     g.closePath(); g.fill();
@@ -554,20 +549,16 @@ const Textures = (() => {
       g.strokeStyle = '#c79018'; g.lineWidth = 1; g.stroke();
     }
     g.fillStyle = '#e67e22'; g.fillRect(10, 28, 28, 4);
-    return c;
-  }
-  function pickupGrenade() {
-    const c = mk(48, 48), g = ctxOf(c);
+  });
+  const pickupGrenade = () => hiRes(48, 48, g => {
     g.fillStyle = '#3f5f3f';
     g.beginPath(); g.ellipse(24, 28, 11, 13, 0, 0, 7); g.fill();
     g.strokeStyle = '#243924'; g.lineWidth = 2; g.stroke();
     g.beginPath(); g.moveTo(13, 28); g.lineTo(35, 28); g.moveTo(24, 15); g.lineTo(24, 41); g.stroke();
     g.fillStyle = '#777'; g.fillRect(19, 9, 10, 7);
     g.fillStyle = '#c9a227'; g.fillRect(29, 7, 9, 4);
-    return c;
-  }
-  function pickupArmor() {
-    const c = mk(48, 48), g = ctxOf(c);
+  });
+  const pickupArmor = () => hiRes(48, 48, g => {
     g.fillStyle = '#3d5f8f';
     g.beginPath();
     g.moveTo(10, 12); g.lineTo(38, 12); g.lineTo(40, 30);
@@ -576,8 +567,7 @@ const Textures = (() => {
     g.strokeStyle = '#1e3652'; g.lineWidth = 2; g.stroke();
     g.fillStyle = '#5b82b8';
     g.fillRect(13, 16, 22, 5); g.fillRect(13, 24, 22, 5); g.fillRect(15, 32, 18, 5);
-    return c;
-  }
+  });
   const pickups = {
     ammo: pickupAmmo(), nachos: pickupNachos(),
     grenade: pickupGrenade(), armor: pickupArmor(),
@@ -587,7 +577,9 @@ const Textures = (() => {
   // Drawn as seen from behind. tip = muzzle flash anchor; sight = the pixel
   // that must land on screen center at full ADS.
   function vmPistol(sleeve) {
-    const c = mk(360, 300), g = ctxOf(c);
+    const w = 360, h = 300;
+    const c = mk(w * TEXR, h * TEXR), g = ctxOf(c);
+    g.scale(TEXR, TEXR);
     g.lineJoin = 'round';
     g.fillStyle = sleeve; g.fillRect(150, 218, 80, 82);
     g.fillStyle = '#e8bd85'; g.fillRect(156, 180, 66, 52);
@@ -610,10 +602,12 @@ const Textures = (() => {
     g.fillRect(168, 66, 8, 12); g.fillRect(202, 66, 8, 12);       // rear posts
     g.fillRect(185, 46, 8, 14);                                    // front post
     g.fillStyle = '#5fd46a'; g.fillRect(187, 48, 4, 4);            // tritium dot
-    return { c, tipX: 189, tipY: 46, sightX: 189, sightY: 50 };
+    return { c, w, h, tipX: 189, tipY: 46, sightX: 189, sightY: 50 };
   }
   function vmSmg(sleeve) {
-    const c = mk(400, 300), g = ctxOf(c);
+    const w = 400, h = 300;
+    const c = mk(w * TEXR, h * TEXR), g = ctxOf(c);
+    g.scale(TEXR, TEXR);
     g.lineJoin = 'round';
     g.fillStyle = sleeve; g.fillRect(96, 216, 84, 84);            // support arm
     g.fillStyle = '#e8bd85'; g.fillRect(104, 182, 62, 48);
@@ -635,10 +629,12 @@ const Textures = (() => {
     g.fillRect(146, 88, 8, 14); g.fillRect(216, 88, 8, 14);
     g.fillRect(177, 50, 8, 16);
     g.fillStyle = '#ffcf4a'; g.fillRect(179, 52, 4, 4);
-    return { c, tipX: 181, tipY: 52, sightX: 181, sightY: 55 };
+    return { c, w, h, tipX: 181, tipY: 52, sightX: 181, sightY: 55 };
   }
   function vmRifle(sleeve) {
-    const c = mk(420, 310), g = ctxOf(c);
+    const w = 420, h = 310;
+    const c = mk(w * TEXR, h * TEXR), g = ctxOf(c);
+    g.scale(TEXR, TEXR);
     g.lineJoin = 'round';
     g.fillStyle = sleeve; g.fillRect(84, 224, 86, 86);
     g.fillStyle = '#e8bd85'; g.fillRect(92, 190, 62, 48);
@@ -667,10 +663,12 @@ const Textures = (() => {
     g.strokeStyle = '#0c0e11'; g.lineWidth = 5;
     g.beginPath(); g.arc(196, 38, 15, 0, 7); g.stroke();           // front ring
     g.fillRect(193, 26, 6, 18);                                     // post
-    return { c, tipX: 196, tipY: 24, sightX: 196, sightY: 36 };
+    return { c, w, h, tipX: 196, tipY: 24, sightX: 196, sightY: 36 };
   }
   function vmShotgun(sleeve) {
-    const c = mk(420, 310), g = ctxOf(c);
+    const w = 420, h = 310;
+    const c = mk(w * TEXR, h * TEXR), g = ctxOf(c);
+    g.scale(TEXR, TEXR);
     g.lineJoin = 'round';
     g.fillStyle = sleeve; g.fillRect(92, 210, 90, 100);
     g.fillStyle = '#e8bd85'; g.fillRect(100, 174, 64, 52);
@@ -692,10 +690,12 @@ const Textures = (() => {
     for (let i = 0; i < 5; i++) g.fillRect(164 + i * 16, 134, 8, 18);
     g.fillStyle = '#d8c15a';                                       // brass bead
     g.beginPath(); g.arc(201, 40, 4, 0, 7); g.fill();
-    return { c, tipX: 201, tipY: 42, sightX: 201, sightY: 42 };
+    return { c, w, h, tipX: 201, tipY: 42, sightX: 201, sightY: 42 };
   }
   function vmSniper(sleeve) {
-    const c = mk(420, 310), g = ctxOf(c);
+    const w = 420, h = 310;
+    const c = mk(w * TEXR, h * TEXR), g = ctxOf(c);
+    g.scale(TEXR, TEXR);
     g.lineJoin = 'round';
     g.fillStyle = sleeve; g.fillRect(88, 220, 88, 90);
     g.fillStyle = '#e8bd85'; g.fillRect(96, 186, 62, 48);
@@ -722,7 +722,7 @@ const Textures = (() => {
     g.fillStyle = '#23262b'; g.fillRect(230, 108, 22, 20);
     g.fillStyle = '#2b2e34'; g.fillRect(252, 168, 26, 14);         // bolt handle
     g.beginPath(); g.arc(280, 175, 9, 0, 7); g.fill();
-    return { c, tipX: 201, tipY: 42, sightX: 201, sightY: 118 };
+    return { c, w, h, tipX: 201, tipY: 42, sightX: 201, sightY: 118 };
   }
   function viewmodels(sleeve) {
     return {
@@ -810,7 +810,7 @@ const Textures = (() => {
     floorData, ceilData, ceilLightData,
     enemySprites, enemySpritesElite, enemySpritesPain, enemySpritesElitePain,
     pickups, viewmodels, makeScope,
-    muzzle: muzzleFlash(128), muzzleSmall: muzzleFlash(80),
+    muzzle: muzzleFlash(256), muzzleSmall: muzzleFlash(160),
     shadow: shadowBlob(), bulletHole: bulletHole(),
   };
 })();
