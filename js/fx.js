@@ -61,36 +61,60 @@ const Fx = (() => {
     if (shells.length > 24) shells.shift();
   }
 
+  // update + expire in one in-place pass per array (no per-frame reallocs)
   function update(dt) {
+    let w = 0;
     for (const p of particles) {
       p.life -= dt;
+      if (p.life <= 0) continue;
       p.x += p.vx * dt; p.y += p.vy * dt;
       p.vz -= p.gravity * dt;
       p.z = Math.max(0.02, p.z + p.vz * dt);
+      particles[w++] = p;
     }
-    particles = particles.filter(p => p.life > 0);
+    particles.length = w;
 
-    for (const t of tracers) t.t -= dt;
-    tracers = tracers.filter(t => t.t > 0);
+    w = 0;
+    for (const t of tracers) {
+      t.t -= dt;
+      if (t.t > 0) tracers[w++] = t;
+    }
+    tracers.length = w;
 
-    for (const d of decals) d.t -= dt;
-    decals = decals.filter(d => d.t > 0);
+    w = 0;
+    for (const d of decals) {
+      d.t -= dt;
+      if (d.t > 0) decals[w++] = d;
+    }
+    decals.length = w;
 
-    for (const f of floaters) { f.t -= dt; f.z += f.vz * dt; f.vz *= 0.94; }
-    floaters = floaters.filter(f => f.t > 0);
+    w = 0;
+    for (const f of floaters) {
+      f.t -= dt;
+      if (f.t <= 0) continue;
+      f.z += f.vz * dt; f.vz *= 0.94;
+      floaters[w++] = f;
+    }
+    floaters.length = w;
 
+    w = 0;
     for (const s of shells) {
       s.t -= dt;
+      if (s.t <= 0) continue;
       s.x += s.vx * dt; s.y += s.vy * dt;
       s.vy += 1900 * dt;
       s.rot += s.vrot * dt;
+      shells[w++] = s;
     }
-    shells = shells.filter(s => s.t > 0);
+    shells.length = w;
   }
 
-  function reset() {
-    particles = []; tracers = []; decals = []; floaters = []; shells = [];
+  function resetArrays() {
+    particles.length = 0; tracers.length = 0; decals.length = 0;
+    floaters.length = 0; shells.length = 0;
   }
+
+  const reset = resetArrays;
 
   return {
     burst, tracer, decal, floater, shell, update, reset,

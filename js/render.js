@@ -44,7 +44,7 @@ const Renderer = (() => {
       const p = isFloor ? (y - hb) : (hb - y);
       if (p < 0.6) {                    // near-horizon rows: haze it out
         const base = y * FLOOR_W;
-        for (let x = 0; x < FLOOR_W; x++) floorPix[base + x] = 0xff0a0a10;
+        for (let x = 0; x < FLOOR_W; x++) floorPix[base + x] = 0xff100a0a; // ABGR rgb(10,10,16)
         continue;
       }
       const rowDist = (isFloor ? posZfloor : posZceil) / p;
@@ -52,24 +52,36 @@ const Renderer = (() => {
       const stepY = rowDist * (ray1y - ray0y) / FLOOR_W;
       let wx = px + rowDist * ray0x;
       let wy = py + rowDist * ray0y;
-      // shade: distance fog
+      // distance fog as an integer multiplier (per-row constant)
       let shade = 1 - rowDist / FOG_DIST;
       if (shade < 0.06) shade = 0.06; else if (shade > 1) shade = 1;
-      shade *= isFloor ? 1 : 0.82;
+      if (!isFloor) shade *= 0.82;
+      const si = (shade * 256) | 0;
       const base = y * FLOOR_W;
-      for (let x = 0; x < FLOOR_W; x++) {
-        const cellX = wx | 0, cellY = wy | 0;
-        let tx = ((wx - cellX) * 64) | 0, ty = ((wy - cellY) * 64) | 0;
-        if (tx < 0) tx = 0; if (ty < 0) ty = 0;
-        let src;
-        if (isFloor) src = texF32;
-        else src = ((cellX * 7 + cellY * 13) % 5 === 0) ? texCL32 : texC32;
-        const t = src[ty * 64 + tx];
-        const r = (t & 0xff) * shade;
-        const gg = ((t >> 8) & 0xff) * shade;
-        const b = ((t >> 16) & 0xff) * shade;
-        floorPix[base + x] = 0xff000000 | (b << 16) | (gg << 8) | r;
-        wx += stepX; wy += stepY;
+      if (isFloor) {
+        for (let x = 0; x < FLOOR_W; x++) {
+          let tx = ((wx - (wx | 0)) * 64) | 0, ty = ((wy - (wy | 0)) * 64) | 0;
+          if (tx < 0) tx = 0; if (ty < 0) ty = 0;
+          const t = texF32[ty * 64 + tx];
+          floorPix[base + x] = 0xff000000
+            | ((((t >> 16) & 0xff) * si >> 8) << 16)
+            | ((((t >> 8) & 0xff) * si >> 8) << 8)
+            | ((t & 0xff) * si >> 8);
+          wx += stepX; wy += stepY;
+        }
+      } else {
+        for (let x = 0; x < FLOOR_W; x++) {
+          const cellX = wx | 0, cellY = wy | 0;
+          let tx = ((wx - cellX) * 64) | 0, ty = ((wy - cellY) * 64) | 0;
+          if (tx < 0) tx = 0; if (ty < 0) ty = 0;
+          const src = ((cellX * 7 + cellY * 13) % 5 === 0) ? texCL32 : texC32;
+          const t = src[ty * 64 + tx];
+          floorPix[base + x] = 0xff000000
+            | ((((t >> 16) & 0xff) * si >> 8) << 16)
+            | ((((t >> 8) & 0xff) * si >> 8) << 8)
+            | ((t & 0xff) * si >> 8);
+          wx += stepX; wy += stepY;
+        }
       }
     }
     floorCtx.putImageData(floorImg, 0, 0);
@@ -77,6 +89,23 @@ const Renderer = (() => {
 
   // ------------------------------------------------------- world render
   let swayA = 0, swayP = 0, prevA = null, prevPitch = 0;
+
+  // per-frame camera state for billboard projection (set in renderWorld);
+  // hoisted to module scope so the hot path allocates nothing per call
+  let camX = 0, camY = 0, camDirX = 1, camDirY = 0, camPlaneX = 0, camPlaneY = 0, camInvDet = 1;
+  let prTX = 0, prTY = 0;
+  function projectInto(x, y) {
+    const relX = x - camX, relY = y - camY;
+    prTX = camInvDet * (camDirY * relX - camDirX * relY);
+    prTY = camInvDet * (-camPlaneY * relX + camPlaneX * relY);
+  }
+  const bills = [];
+  const billCmp = (a, b) => b.tY - a.tY;
+  function pushBill(x, y, img, wScale, hScale, zLift, extra) {
+    projectInto(x, y);
+    if (prTY < 0.12) return;
+    bills.push({ tX: prTX, tY: prTY, img, wScale, hScale, zLift, extra });
+  }
 
   function renderWorld(cam, dt, visuals) {
     const S = Game.S;
@@ -101,9 +130,10 @@ const Renderer = (() => {
     g.imageSmoothingEnabled = true;
     g.drawImage(floorCanvas, 0, 0, W, H);
 
-    // walls
+    // walls (fog via globalAlpha — no per-column color string parsing)
     g.imageSmoothingEnabled = false;
     const muzzleGlow = visuals && visuals.flash > 0 ? 2.4 : 0;
+    g.fillStyle = 'rgb(6,7,12)';
     for (let r = 0; r < RAYS; r++) {
       const cameraX = 2 * r / RAYS - 1;
       const rdx = dirX + planeX * cameraX, rdy = dirY + planeY * cameraX;
@@ -116,27 +146,20 @@ const Renderer = (() => {
       const tx = Math.min(63, Math.max(0, (hit.wallX * 64) | 0));
       g.drawImage(tex, tx, 0, 1, 64, r * COLW, y0, COLW, lineH);
       let shade = (dist - muzzleGlow) / FOG_DIST;
-      if (shade > 0.86) shade = 0.86; if (shade < 0) shade = 0;
+      if (shade > 0.86) shade = 0.86;
       if (shade > 0.03) {
-        g.fillStyle = `rgba(6,7,12,${shade})`;
+        g.globalAlpha = shade;
         g.fillRect(r * COLW, y0, COLW, lineH);
+        g.globalAlpha = 1;          // next column's texture must draw opaque
       }
     }
 
     // ------- billboards
-    const invDet = 1 / (planeX * dirY - dirX * planeY);
-    const bills = [];
-    const project = (x, y) => {
-      const relX = x - cam.x, relY = y - cam.y;
-      const tX = invDet * (dirY * relX - dirX * relY);
-      const tY = invDet * (-planeY * relX + planeX * relY);
-      return { tX, tY };
-    };
-    const pushBill = (x, y, img, wScale, hScale, zLift, extra) => {
-      const pr = project(x, y);
-      if (pr.tY < 0.12) return;
-      bills.push({ tX: pr.tX, tY: pr.tY, img, wScale, hScale, zLift, extra });
-    };
+    camX = cam.x; camY = cam.y;
+    camDirX = dirX; camDirY = dirY;
+    camPlaneX = planeX; camPlaneY = planeY;
+    camInvDet = 1 / (planeX * dirY - dirX * planeY);
+    bills.length = 0;
 
     if (S.mode !== 'menu') {
       // decals hug the walls
@@ -173,7 +196,7 @@ const Renderer = (() => {
         pushBill(p.x, p.y, null, 0, 0, p.z, { particle: p });
     }
 
-    bills.sort((a, b) => b.tY - a.tY);
+    bills.sort(billCmp);
 
     for (const b of bills) {
       const screenX = (W / 2) * (1 + b.tX / b.tY);
@@ -203,14 +226,14 @@ const Renderer = (() => {
       const c0 = Math.max(0, Math.floor(left / COLW));
       const c1 = Math.min(RAYS, Math.ceil((left + sw) / COLW));
       const iw = b.img.width;
-      const srcW = Math.max(1, iw / (sw / COLW));
+      const srcW = Math.max(1, Math.round(iw / (sw / COLW)));
       const depthBias = b.extra && b.extra.decal ? 0.08 : 0;
       g.globalAlpha = alpha;
       for (let c = c0; c < c1; c++) {
         if (zbuf[c] < b.tY - depthBias) continue;
-        const u = ((c * COLW - left) / sw) * iw;
-        g.drawImage(b.img, Math.min(iw - 1, Math.max(0, u)), 0, srcW, b.img.height,
-          c * COLW, top, COLW, sh);
+        let u = (((c * COLW - left) / sw) * iw) | 0;
+        if (u < 0) u = 0; else if (u > iw - srcW) u = iw - srcW;
+        g.drawImage(b.img, u, 0, srcW, b.img.height, c * COLW, top, COLW, sh);
       }
       g.globalAlpha = 1;
 
@@ -230,29 +253,31 @@ const Renderer = (() => {
 
     // tracers
     for (const t of Fx.tracers) {
-      const a0 = project(t.x0, t.y0), a1 = project(t.x1, t.y1);
-      if (a0.tY < 0.1 && a1.tY < 0.1) continue;
-      const pt = pr => ({
-        x: (W / 2) * (1 + pr.tX / Math.max(0.1, pr.tY)),
-        y: horizon + (H / Math.max(0.1, pr.tY)) * (eye - 0.45),
-      });
-      const p0 = pt(a0), p1 = pt(a1);
+      projectInto(t.x0, t.y0);
+      const t0x = prTX, t0y = prTY;
+      projectInto(t.x1, t.y1);
+      const t1x = prTX, t1y = prTY;
+      if (t0y < 0.1 && t1y < 0.1) continue;
+      const d0 = Math.max(0.1, t0y), d1 = Math.max(0.1, t1y);
+      const p0x = (W / 2) * (1 + t0x / d0), p0y = horizon + (H / d0) * (eye - 0.45);
+      const p1x = (W / 2) * (1 + t1x / d1), p1y = horizon + (H / d1) * (eye - 0.45);
       g.strokeStyle = `rgba(255,225,140,${(t.t / t.max) * 0.8})`;
       g.lineWidth = 2;
-      g.beginPath(); g.moveTo(p0.x, p0.y); g.lineTo(p1.x, p1.y); g.stroke();
+      g.beginPath(); g.moveTo(p0x, p0y); g.lineTo(p1x, p1y); g.stroke();
     }
 
     // floating text (world-anchored)
     for (const f of Fx.floaters) {
-      const pr = project(f.x, f.y);
-      if (pr.tY < 0.25) continue;
-      const size = H / pr.tY;
-      const sx = (W / 2) * (1 + pr.tX / pr.tY);
+      projectInto(f.x, f.y);
+      if (prTY < 0.25) continue;
+      const fTY = prTY;
+      const size = H / fTY;
+      const sx = (W / 2) * (1 + prTX / fTY);
       const sy = horizon + size * eye - size * f.z;
       const col = Math.round(sx / COLW);
-      if (col >= 0 && col < RAYS && zbuf[col] < pr.tY - 0.2) continue;
+      if (col >= 0 && col < RAYS && zbuf[col] < fTY - 0.2) continue;
       const fs = Math.max(9, Math.min(34, size * 0.085 * f.size));
-      g.globalAlpha = Math.min(1, f.t / f.max * 1.8);
+      g.globalAlpha = Math.min(1, (f.t / f.max) * 1.8);
       g.font = `bold ${fs}px ${UI_FONT}`;
       g.textAlign = 'center';
       g.fillStyle = '#000';
@@ -292,7 +317,7 @@ const Renderer = (() => {
     const idle = Math.sin(S.time * 1.7) * 2.2 * (1 - ads);
     const recoilY = p.recoil * (20 + sp.viewKick * 8);
     const reloadDip = p.reloading > 0
-      ? Math.sin(Math.min(1, 1 - p.reloading / (sp.reload || 1)) * Math.PI) * 130 : 0;
+      ? Math.sin(Math.min(1, 1 - p.reloading / (p.reloadTotal || sp.reload)) * Math.PI) * 130 : 0;
     const swapDip = p.swapT > 0 ? p.swapT * 320 : 0;
 
     const scale = 1.12 + ads * 0.1;
@@ -585,7 +610,7 @@ const Renderer = (() => {
       g.beginPath(); g.arc(ax - 278 + i * 14, ay + 42, 4.5, 0, TAU); g.fill();
     }
     if (p.reloading > 0)
-      bar(ax - 284, ay + 66, 270, 4, 1 - p.reloading / (sp.reload || 1), '#f6c945');
+      bar(ax - 284, ay + 66, 270, 4, 1 - p.reloading / (p.reloadTotal || sp.reload), '#f6c945');
 
     // ---------- top-left: cash / score / wave
     panel(24, 20, 210, 92, 12);
@@ -593,7 +618,8 @@ const Renderer = (() => {
     label(`SCORE ${S.score}`, 40, 74, 14, '#fff', 'left', 700);
     if (S.multiplier > 1 && S.multTimer > 0)
       label(`×${S.multiplier.toFixed(2).replace(/\.?0+$/, '')}`, 160, 74, 13, '#f6c945', 'left', 800);
-    const alive = S.enemies.filter(e => !e.dead).length;
+    let alive = 0;
+    for (const e of S.enemies) if (!e.dead) alive++;
     label(`WAVE ${S.wave}`, 40, 98, 15, '#e67e22', 'left', 800);
     label(`✖ ${alive + S.toSpawn}`, 130, 98, 14, 'rgba(255,255,255,0.75)', 'left', 700);
 
@@ -662,10 +688,11 @@ const Renderer = (() => {
 
     // ---------- damage direction arcs
     for (const arc of S.hurtArcs) {
+      // rel = 0 means the attacker is dead ahead → arc at the TOP of the ring
       const rel = arc.angle - p.a;
       g.save();
       g.translate(cx, cy);
-      g.rotate(rel);
+      g.rotate(rel - Math.PI / 2);
       g.strokeStyle = `rgba(230,40,40,${Math.min(0.8, arc.t)})`;
       g.lineWidth = 9;
       g.beginPath(); g.arc(0, 0, 130, -0.4, 0.4); g.stroke();

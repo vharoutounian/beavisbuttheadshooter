@@ -110,10 +110,11 @@ const Game = (() => {
   });
   document.addEventListener('keyup', e => {
     keys[e.code] = false;
-    if (e.code === 'KeyC' || e.code === 'ControlLeft') crouchReleased();
+    if (S.player && (e.code === 'KeyC' || e.code === 'ControlLeft')) crouchReleased();
   });
 
   canvas.addEventListener('mousedown', e => {
+    if (S.shopOpen) return;
     if (S.mode === 'playing' && document.pointerLockElement !== canvas) {
       lockPointer();
       return;
@@ -154,6 +155,9 @@ const Game = (() => {
   const lines = () => LINES[S.player.character];
   const pick = arr => arr[(Math.random() * arr.length) | 0];
 
+  // Hot path (640+ calls/frame): fills and returns a shared scratch object.
+  // Callers must consume the result before the next castRay call.
+  const rayHit = { dist: 0, side: 0, tile: 1, wallX: 0 };
   function castRay(px, py, dx, dy) {
     let mapX = px | 0, mapY = py | 0;
     const deltaX = Math.abs(1 / (dx || 1e-9)), deltaY = Math.abs(1 / (dy || 1e-9));
@@ -172,7 +176,8 @@ const Game = (() => {
     const dist = side === 0 ? sideX - deltaX : sideY - deltaY;
     let wallX = side === 0 ? py + dist * dy : px + dist * dx;
     wallX -= wallX | 0;
-    return { dist, side, tile, wallX };
+    rayHit.dist = dist; rayHit.side = side; rayHit.tile = tile; rayHit.wallX = wallX;
+    return rayHit;
   }
 
   function hasLOS(ax, ay, bx, by) {
@@ -200,7 +205,16 @@ const Game = (() => {
     S.feed.unshift({ text, t: 5 });
     if (S.feed.length > 6) S.feed.pop();
   }
-  function setAnnounce(big, small, dur = 2.6) { S.announce = { big, small, t: dur, max: dur }; }
+  // Announcements queue instead of clobbering each other (killstreak
+  // cascades, streak + wave-clear on the same kill, rank-ups).
+  const announceQueue = [];
+  function setAnnounce(big, small, dur = 2.6) {
+    if (S.announce && S.announce.t > 0.9) {
+      if (announceQueue.length < 3) announceQueue.push({ big, small, dur });
+      return;
+    }
+    S.announce = { big, small, t: dur, max: dur };
+  }
 
   function rankFor(xpVal) {
     let r = RANKS[0];
@@ -236,7 +250,8 @@ const Game = (() => {
     if (!p.owned[w] || p.weapon === w || p.reloading > 0) return;
     p.weapon = w;
     p.swapT = (p.perks.hands ? 0.15 : 0.28);
-    p.fireCooldown = Math.max(p.fireCooldown, p.swapT);
+    // the swap penalty REPLACES any leftover cooldown (swap-to-cancel a bolt)
+    p.fireCooldown = p.swapT;
     Sound.play('swap');
   }
 
@@ -245,6 +260,7 @@ const Game = (() => {
     if (p.reloading > 0 || p.ammo[p.weapon] >= sp.mag) return;
     if (p.reserve[p.weapon] <= 0) { Sound.play('dry'); return; }
     p.reloading = reloadTime(p.weapon);
+    p.reloadTotal = p.reloading;          // renderer animates against this
     Sound.play('reloadStart');
     if (Math.random() < 0.12) Sound.say(pick(lines().reload), p.character);
   }
@@ -261,11 +277,12 @@ const Game = (() => {
   }
 
   function muzzleWorld() {
+    // slightly to the player's right, matching the on-screen gun
     const p = S.player;
     const ca = Math.cos(p.a), sa = Math.sin(p.a);
     return {
-      x: p.x + ca * 0.45 - sa * -0.12,
-      y: p.y + sa * 0.45 + ca * -0.12,
+      x: p.x + ca * 0.45 - sa * 0.12,
+      y: p.y + sa * 0.45 + ca * 0.12,
     };
   }
 
@@ -351,9 +368,11 @@ const Game = (() => {
     p.grenades--;
     Sound.play('pin');
     const a = p.a;
-    const pitchBoost = clamp(-p.pitch / 170, -0.4, 0.6);   // look up = throw farther
+    const pitchBoost = clamp(p.pitch / 170, -0.4, 0.6);    // look up = throw farther
+    let gx = p.x + Math.cos(a) * 0.4, gy = p.y + Math.sin(a) * 0.4;
+    if (GameMap.solidAt(gx, gy)) { gx = p.x; gy = p.y; }   // nose against a wall
     S.grenades.push({
-      x: p.x + Math.cos(a) * 0.4, y: p.y + Math.sin(a) * 0.4,
+      x: gx, y: gy,
       vx: Math.cos(a) * (6.5 + pitchBoost * 3), vy: Math.sin(a) * (6.5 + pitchBoost * 3),
       z: 0.45, vz: 1.7 + pitchBoost * 1.6, fuse: 1.7,
     });
@@ -402,6 +421,7 @@ const Game = (() => {
       dmg *= 0.7;
       Sound.at('armorHit', e.x, e.y);
     }
+    if (!info.boom && e.hp >= e.maxHp - 0.01 && dmg >= e.hp) info.oneHit = true;
     e.hp -= dmg;
     e.pain = 0.13;
     Fx.burst(e.x, e.y, { count: 3, color: '#d43a3a', speed: 1, life: 0.3, z: 0.7 });
@@ -448,7 +468,7 @@ const Game = (() => {
     if (info.head) medal('headshot', e.x, e.y);
     if (distFromPlayer > 13) medal('longshot', e.x, e.y);
     if (distFromPlayer > 0 && distFromPlayer < 1.6 && !info.boom) medal('pointblank', e.x, e.y);
-    if (info.head && e.maxHp <= WEAPONS[p.weapon].dmg * WEAPONS[p.weapon].headshot) medal('onetap', e.x, e.y);
+    if (info.oneHit) medal('onetap', e.x, e.y);
     if (p.slideT > 0) medal('slide', e.x, e.y);
     const now = S.time;
     S.killTimes.push(now);
@@ -609,11 +629,11 @@ const Game = (() => {
           }
         } else {
           const cx = e.x | 0, cy = e.y | 0;
-          let bd = GameMap.fieldAt(cx, cy), bx = cx, by = cy;
-          for (const [nx, ny] of [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]]) {
-            const fd = GameMap.fieldAt(nx, ny);
-            if (fd < bd) { bd = fd; bx = nx; by = ny; }
-          }
+          let bd = GameMap.fieldAt(cx, cy), bx = cx, by = cy, fd;
+          fd = GameMap.fieldAt(cx + 1, cy); if (fd < bd) { bd = fd; bx = cx + 1; by = cy; }
+          fd = GameMap.fieldAt(cx - 1, cy); if (fd < bd) { bd = fd; bx = cx - 1; by = cy; }
+          fd = GameMap.fieldAt(cx, cy + 1); if (fd < bd) { bd = fd; bx = cx; by = cy + 1; }
+          fd = GameMap.fieldAt(cx, cy - 1); if (fd < bd) { bd = fd; bx = cx; by = cy - 1; }
           const tx = bx + 0.5, ty = by + 0.5;
           const md = Math.hypot(tx - e.x, ty - e.y) || 1;
           mx = (tx - e.x) / md; my = (ty - e.y) / md;
@@ -852,6 +872,7 @@ const Game = (() => {
       return;
     }
     S.shopOpen = !S.shopOpen;
+    mouseDown = false; wantFire = false;    // no shot on the closing click
     Sound.play('uiClick');
   }
 
@@ -861,6 +882,13 @@ const Game = (() => {
     const p = S.player;
     if (!item) return;
     if (item.owned || S.cash < item.price) { Sound.play('buyFail'); return; }
+    // don't charge for consumables that would do nothing
+    if (item.type === 'nade' && p.grenades >= CONFIG.MAX_GRENADES) { Sound.play('buyFail'); return; }
+    if (item.type === 'armor' && p.armor >= CONFIG.MAX_ARMOR) { Sound.play('buyFail'); return; }
+    if (item.type === 'ammo' &&
+        SLOT_ORDER.every(wn => !p.owned[wn] || p.reserve[wn] >= WEAPONS[wn].maxReserve)) {
+      Sound.play('buyFail'); return;
+    }
     S.cash -= item.price;
     Sound.play('buyOk');
     if (Math.random() < 0.4) Sound.say(pick(lines().buy), p.character);
@@ -939,8 +967,7 @@ const Game = (() => {
     if (S.toSpawn > 0) {
       S.spawnTimer -= dt;
       const aliveCap = Math.min(10 + S.wave, 24);
-      const alive = S.enemies.filter(e => !e.dead).length;
-      if (S.spawnTimer <= 0 && alive < aliveCap) {
+      if (S.spawnTimer <= 0 && countAlive() < aliveCap) {
         S.spawnTimer = Math.max(0.4, 1.4 - S.wave * 0.05);
         S.toSpawn--;
         let s = pick(GameMap.spawns);
@@ -984,13 +1011,19 @@ const Game = (() => {
     S.grenades = S.grenades.filter(n => !n.boom);
   }
 
+  function countAlive() {
+    let n = 0;
+    for (const e of S.enemies) if (!e.dead) n++;
+    return n;
+  }
+
   // -------------------------------------------------------------- loop
   function update(dt) {
     S.time += dt;
 
     Sound.listener(S.player.x, S.player.y, S.player.a);
-    const alive = S.enemies.filter(e => !e.dead).length;
-    Sound.music.setIntensity(clamp(alive / 10 + (S.boss ? 0.35 : 0), 0.15, 1));
+    S.aliveCount = countAlive();
+    Sound.music.setIntensity(clamp(S.aliveCount / 10 + (S.boss ? 0.35 : 0), 0.15, 1));
 
     if (!S.shopOpen) {
       updatePlayer(dt);
@@ -1009,7 +1042,14 @@ const Game = (() => {
     S.flash = Math.max(0, S.flash - dt);
     S.multTimer = Math.max(0, S.multTimer - dt);
     if (S.multTimer <= 0) S.multiplier = 1;
-    if (S.announce) { S.announce.t -= dt; if (S.announce.t <= 0) S.announce = null; }
+    if (S.announce) {
+      S.announce.t -= dt;
+      if (S.announce.t <= 0) {
+        S.announce = null;
+        const next = announceQueue.shift();
+        if (next) S.announce = { big: next.big, small: next.small, t: next.dur, max: next.dur };
+      }
+    }
     for (const f of S.feed) f.t -= dt;
     S.feed = S.feed.filter(f => f.t > 0);
     for (const m of S.medals) m.t -= dt;
@@ -1047,6 +1087,7 @@ const Game = (() => {
     S.multiplier = 1; S.multTimer = 0; S.intermission = 0; S.time = 0;
     S.hitmarker = 0; S.shake = 0; S.flash = 0; S.screenFlash = null;
     S.announce = null; S.boss = null; S.shopOpen = false;
+    announceQueue.length = 0;
     Fx.reset();
     lastRank = rankFor(0);
 
@@ -1060,6 +1101,7 @@ const Game = (() => {
   function pause() {
     if (S.mode !== 'playing') return;
     S.mode = 'paused';
+    S.shopOpen = false;
     document.exitPointerLock();
     UI.showPause();
   }
@@ -1071,6 +1113,7 @@ const Game = (() => {
   function quitToMenu() {
     S.mode = 'menu';
     Sound.music.setIntensity(0.15);
+    Fx.reset();
     document.exitPointerLock();
     UI.showMenu();
   }
