@@ -1,5 +1,6 @@
 # Build the game with Vite and publish dist/ to GitHub Pages.
-# One-time setup: repo Settings → Pages → Source → "GitHub Actions".
+# The configure-pages step enables Pages automatically on first run —
+# no repository settings needed.
 name: Deploy to GitHub Pages
 
 on:
@@ -21,6 +22,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/setup-node@v4
         with:
           node-version: 22

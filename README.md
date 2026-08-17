@@ -11,9 +11,8 @@ with [Vite](https://vitejs.dev/).
 
 ## Play
 
-**Online:** once GitHub Pages is enabled for this repo
-(Settings → Pages → Source → *GitHub Actions*), every push to `main` deploys
-automatically to:
+**Online:** every push to `main` deploys automatically (GitHub Actions →
+GitHub Pages) to:
 
 > https://vharoutounian.github.io/beavisbuttheadshooter/
 
