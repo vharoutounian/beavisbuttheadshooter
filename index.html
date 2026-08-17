@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Beavis &amp; Butt-Head Shooter — Huh-Huh Warfare</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80'>💥</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="game" width="960" height="540"></canvas>
+
+<div id="ui">
+  <!-- ============================================= main menu -->
+  <div id="menu" class="overlay">
+    <h1>BEAVIS &amp; BUTT-HEAD<br><span>SHOOTER</span></h1>
+    <p class="tagline">HUH-HUH WARFARE · SCHOOL'S OUT FOREVER</p>
+
+    <div class="cards">
+      <div id="card-beavis" class="card">
+        <div class="face"></div>
+        <h2>BEAVIS</h2>
+        <p>“FIRE! FIRE!”</p>
+      </div>
+      <div id="card-butthead" class="card">
+        <div class="face"></div>
+        <h2>BUTT-HEAD</h2>
+        <p>“UH HUH HUH. COOL.”</p>
+      </div>
+    </div>
+
+    <button id="btn-start" class="big">DEPLOY, DUMBASS</button>
+    <p id="career" class="career"></p>
+
+    <div class="controls">
+      <div><b>WASD</b> move</div><div><b>MOUSE</b> aim / fire</div>
+      <div><b>RIGHT&nbsp;MOUSE</b> aim down sights</div><div><b>SHIFT</b> sprint</div>
+      <div><b>R</b> reload</div><div><b>G</b> grenade</div>
+      <div><b>1&nbsp;2&nbsp;3 / WHEEL</b> weapons</div><div><b>P / ESC</b> pause</div>
+      <div><b>ARROWS</b> turn / move</div><div></div>
+      <div><b>M</b> sound on/off</div><div><b>V</b> voice on/off</div>
+    </div>
+
+    <p class="fineprint">Unofficial parody fan game. Beavis and Butt-Head are trademarks of
+    their respective owners; this project is not affiliated with or endorsed by them.</p>
+  </div>
+
+  <!-- ============================================= pause -->
+  <div id="pause" class="overlay hidden">
+    <h1 class="small">PAUSED,<br><span>BUNGHOLE</span></h1>
+    <button id="btn-resume" class="big">RESUME</button>
+    <button id="btn-restart">RESTART</button>
+    <button id="btn-quit">QUIT TO MENU</button>
+  </div>
+
+  <!-- ============================================= death -->
+  <div id="dead" class="overlay hidden">
+    <h1 class="small wasted">WASTED</h1>
+    <p class="tagline">this sucks. huh huh.</p>
+    <div id="dead-stats" class="deadstats"></div>
+    <button id="btn-respawn" class="big">RESPAWN</button>
+    <button id="btn-dead-quit">QUIT TO MENU</button>
+  </div>
+</div>
+
+<script src="js/map.js"></script>
+<script src="js/textures.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
