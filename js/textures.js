@@ -8,7 +8,7 @@ export const Textures = (() => {
   const ctxOf = c => c.getContext('2d');
 
   // Art is authored in design units and rendered at 2x for crisp display.
-  const TEXR = 2;
+  const TEXR = 4;
   function hiRes(w, h, draw) {
     const c = mk(w * TEXR, h * TEXR);
     const g = ctxOf(c);
