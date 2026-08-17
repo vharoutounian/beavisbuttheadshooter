@@ -74,20 +74,29 @@ Pick your dumbass, click **DEPLOY**, and click the screen to grab mouse lock.
 
 ## Engine notes
 
-- **Real-time 3D (WebGL / three.js, vendored — still zero setup)**: the
-  school is true 3D geometry under an open sky — instanced textured wall
-  blocks, a sunlit floor, drifting clouds, a warm directional sun with
-  soft dynamic shadows, hemisphere ambient, distance fog, ACES tone
-  mapping, and a bloom pass. Bright, clean, stylized.
-- **Chunky 3D characters**: each enemy type is a procedurally-assembled
-  big-headed rig (letterman jackets, mohawks, backwards caps, sashes,
-  skateboards, elite armor + helmets) with face textures, walk/attack
-  animation, telegraphed windups, and physical death falls. All
-  generated in code — no model files.
+- **Real-time 3D (WebGL / three.js, vendored — still zero setup)**:
+  corridor-height PBR walls with procedural normal maps, a sunlit floor,
+  concrete wall trim, crate and sandbag cover you can actually fight
+  around, a distant city skyline, drifting clouds, a visible sun with
+  glow, floating dust motes, warm directional sun with soft dynamic
+  shadows, distance fog, and ACES tone mapping.
+- **Cinematic post stack**: SSAO ambient occlusion, bloom, a film grade
+  (teal-shadow/warm-highlight split tone, contrast, vignette, grain),
+  and FXAA — toggleable in settings.
+- **3D first-person weapons**: all five guns are real 3D models riding
+  the camera — with your character's arms and hands on them — with hip
+  and true iron-sight ADS positions, sway, recoil kick, reload and swap
+  animation, sprint/slide poses, and a muzzle flash that lights the
+  walls.
+- **Human-proportioned 3D characters**: each enemy type is a
+  procedurally-assembled rig (letterman jackets, mohawks, backwards
+  caps, sashes, skateboards, elite armor + helmets) with face textures,
+  walk/attack animation, telegraphed windups, and physical death falls.
 - **True 3D combat**: shots raycast through the actual camera with
-  separate head/body colliders (aim up at heads for headshots), 3D
-  tracers, bullet-hole decals stuck to walls with their normals, shell
-  casings, muzzle flash lighting the walls, and grenades that arc in 3D.
+  separate head/body colliders, 3D tracers, bullet-hole decals stuck to
+  surfaces with their normals, shell casings, and grenades that arc in
+  3D. Crates and barriers block movement and bullets but you can shoot
+  over them.
 - **Native-resolution + dynamic scaling**: renders at your display's
   resolution (devicePixelRatio-aware, up to 1440p internal) and steps
   the internal resolution down/up automatically to hold frame rate. The

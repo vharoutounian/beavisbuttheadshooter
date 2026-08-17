@@ -22,14 +22,10 @@ const Hud = (() => {
   }
   setSize();
 
-  let viewmodels = null, portraitOk = null, portraitHurt = null;
-  let swayA = 0, swayP = 0, prevA = null, prevPitch = 0;
+  let portraitOk = null, portraitHurt = null;
   function onRunStart(character) {
-    const sleeve = CHARACTERS[character].sleeve;
-    viewmodels = Textures.viewmodels(sleeve);
     portraitOk = Characters.portrait(character, 256, 'normal');
     portraitHurt = Characters.portrait(character, 256, 'hurt');
-    swayA = 0; swayP = 0; prevA = null; prevPitch = 0;
   }
 
   // ------------------------------------------------------------ helpers
@@ -60,65 +56,23 @@ const Hud = (() => {
     }
   }
 
-  // ---------------------------------------------------------- viewmodel
+  // ------------------------------------------- scope overlay + casings
+  // (the weapon itself is a real 3D model riding on the camera)
   function renderViewmodel(dt) {
     const S = Game.S, p = S.player;
     const sp = WEAPONS[p.weapon];
-    const vm = viewmodels[p.weapon];
-
     if (sp.scope && p.adsT > 0.92) {
       g.drawImage(scopeOverlay, 0, 0);
       return;
     }
+    if (!Fx.shells.length) return;
     g.save();
     g.scale(uiScale, uiScale);
-    g.imageSmoothingEnabled = true;
-
-    if (prevA === null) { prevA = p.a; prevPitch = p.pitch; }
-    let dA = p.a - prevA;
-    if (dA > Math.PI) dA -= TAU; if (dA < -Math.PI) dA += TAU;
-    const dP = p.pitch - prevPitch;
-    prevA = p.a; prevPitch = p.pitch;
-    swayA += (dA * 260 - swayA) * Math.min(1, dt * 9);
-    swayP += (dP * 0.7 - swayP) * Math.min(1, dt * 9);
-
-    const ads = p.adsT * p.adsT * (3 - 2 * p.adsT);
-    const bob = Math.sin(p.bobPhase) * 13 * p.bobMag * (1 - ads * 0.85);
-    const bob2 = Math.abs(Math.cos(p.bobPhase)) * 8 * p.bobMag * (1 - ads * 0.85);
-    const idle = Math.sin(S.time * 1.7) * 2.2 * (1 - ads);
-    const recoilY = p.recoil * (20 + sp.viewKick * 8);
-    const reloadDip = p.reloading > 0
-      ? Math.sin(Math.min(1, 1 - p.reloading / (p.reloadTotal || sp.reload)) * Math.PI) * 130 : 0;
-    const swapDip = p.swapT > 0 ? p.swapT * 320 : 0;
-
-    const scale = 1.12 + ads * 0.1;
-    const hipX = DW / 2 + 150 - (vm.w * scale) / 2;
-    const hipY = DH - vm.h * scale + 46;
-    const adsX = DW / 2 - vm.sightX * scale;
-    const adsY = DH / 2 - vm.sightY * scale + recoilY * 0.4;
-    const drawX = hipX + (adsX - hipX) * ads - swayA * (1 - ads * 0.7) + bob;
-    const y = hipY + (adsY - hipY) * ads - swayP * (1 - ads * 0.7) + bob2 + idle
-      + recoilY + reloadDip + swapDip + (p.sprinting ? 60 : 0) + (p.slideT > 0 ? 40 : 0);
-
-    g.save();
-    if (p.sprinting || p.slideT > 0) {
-      g.translate(drawX + vm.w * scale / 2, y + 260);
-      g.rotate(p.slideT > 0 ? 0.22 : 0.35);
-      g.translate(-(drawX + vm.w * scale / 2), -(y + 260));
-    }
-    g.drawImage(vm.c, drawX, y, vm.w * scale, vm.h * scale);
-    if (p.recoil > 0.55) {
-      const ms = 96 + Math.random() * 44;
-      g.drawImage(Textures.muzzle,
-        drawX + vm.tipX * scale - ms / 2, y + vm.tipY * scale - ms / 2, ms, ms);
-    }
-    g.restore();
-
-    for (const s of Fx.shells) {
+    for (const s2 of Fx.shells) {
       g.save();
-      g.translate(s.x, s.y);
-      g.rotate(s.rot);
-      g.globalAlpha = Math.min(1, s.t * 2);
+      g.translate(s2.x, s2.y);
+      g.rotate(s2.rot);
+      g.globalAlpha = Math.min(1, s2.t * 2);
       g.fillStyle = '#c9a742';
       g.fillRect(-4, -2, 8, 4);
       g.fillStyle = '#8f742a';

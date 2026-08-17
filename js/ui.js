@@ -64,6 +64,7 @@ const UI = (() => {
   bindCheck('set-dmg', 'dmgNumbers');
   bindCheck('set-shake', 'shake');
   bindCheck('set-maprot', 'minimapRotate');
+  bindCheck('set-postfx', 'postfx');
 
   $('btn-settings').addEventListener('click', () => {
     $('settings-panel').classList.toggle('hidden');

@@ -39,7 +39,7 @@ const Fx = (() => {
     floaters.push({
       x: x + (Math.random() - 0.5) * 0.3,
       y: y + (Math.random() - 0.5) * 0.3,
-      z: opts.z ?? 1.15,
+      z: opts.z ?? 1.95,
       vz: opts.vz ?? 0.9,
       text, color,
       size: opts.size ?? 1,

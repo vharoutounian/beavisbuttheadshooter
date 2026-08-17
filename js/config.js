@@ -17,6 +17,8 @@ const CONFIG = {
   MAX_ARMOR: 100,
   MAX_GRENADES: 6,
   FOG_DIST: 17,             // distance where walls fade to black
+  WALL_H: 2.6,              // wall height in meters (3D renderer)
+  EYE_SCALE: 3.2,           // gameplay eye units (0..1) -> meters
 };
 
 const WEAPONS = {
@@ -205,6 +207,7 @@ const LINES = {
 const DEFAULT_SETTINGS = {
   sens: 1.0,          // 0.4 .. 2.5
   fov: 68,            // 60 .. 85
+  postfx: true,       // SSAO + film grade + FXAA
   volSfx: 0.8,
   volMusic: 0.45,
   voice: true,

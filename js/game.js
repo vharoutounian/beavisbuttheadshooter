@@ -283,7 +283,7 @@ const Game = (() => {
     return {
       x: p.x + ca * 0.45 - sa * 0.12,
       y: p.y + sa * 0.45 + ca * 0.12,
-      z: p.eye * 1.3 - 0.06,
+      z: p.eye * CONFIG.EYE_SCALE - 0.1,
     };
   }
 
@@ -336,7 +336,7 @@ const Game = (() => {
         // wall / floor impact
         Renderer.addDecal(hit.point, hit.normal);
         Fx.burst(hit.point.x, hit.point.z,
-          { count: 3, color: '#c9b79a', speed: 0.6, life: 0.25, z: hit.point.y / 1.3 });
+          { count: 3, color: '#c9b79a', speed: 0.6, life: 0.25, z: hit.point.y / CONFIG.WALL_H });
         if (sp.tracer)
           Fx.tracer(mz.x, mz.y, hit.point.x, hit.point.z, mz.z, hit.point.y);
         if (Math.random() < 0.2) Sound.at('ricochet', hit.point.x, hit.point.z);
@@ -412,10 +412,10 @@ const Game = (() => {
     if (!info.boom && e.hp >= e.maxHp - 0.01 && dmg >= e.hp) info.oneHit = true;
     e.hp -= dmg;
     e.pain = 0.13;
-    Fx.burst(e.x, e.y, { count: 3, color: '#d43a3a', speed: 1, life: 0.3, z: 0.7 });
+    Fx.burst(e.x, e.y, { count: 3, color: '#d43a3a', speed: 1, life: 0.3, z: 0.45 });
     if (settings.dmgNumbers)
       Fx.floater(e.x, e.y, `${Math.round(dmg)}`, info.head ? '#ff5f5f' : '#fff',
-        { size: info.head ? 0.85 : 0.65, life: 0.6, z: 1.3 });
+        { size: info.head ? 0.85 : 0.65, life: 0.6, z: 2.0 });
     if (e.hp <= 0) {
       e.dead = true; e.deadT = 0;
       Sound.at('splat', e.x, e.y);
