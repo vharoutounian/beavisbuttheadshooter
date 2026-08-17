@@ -1,20 +1,31 @@
 # Beavis & Butt-Head Shooter — Huh-Huh Warfare
 
-A Call-of-Duty-flavored first-person wave shooter starring Beavis and Butt-Head,
-running on a hand-rolled raycasting engine. Zero dependencies, zero build step,
-zero asset files — every texture, sprite, and sound is generated in the browser
-at runtime.
+A modern, Call-of-Duty-flavored first-person wave shooter starring Beavis and
+Butt-Head, rendered in clean stylized 3D (WebGL). Zero asset files — every
+texture, character, portrait, and sound is generated in code at runtime.
+
+Built on the same stack as a modern three.js production:
+[three](https://threejs.org/) `0.185` + the pmndrs
+[postprocessing](https://github.com/pmndrs/postprocessing) pipeline, bundled
+with [Vite](https://vitejs.dev/).
 
 ## Play
 
-Open `index.html` in a browser. That's it.
+**Online:** every push to `main` deploys automatically (GitHub Actions →
+GitHub Pages) to:
 
-If your browser is picky about `file://` pages (pointer lock usually works fine,
-but just in case), serve it locally:
+> https://vharoutounian.github.io/beavisbuttheadshooter/
+
+**Locally:**
 
 ```sh
-python3 -m http.server 8000
-# then visit http://localhost:8000
+npm install
+npm run dev        # dev server at http://localhost:5173
+```
+
+```sh
+npm run build      # production build into dist/
+npm run preview    # serve the production build
 ```
 
 Pick your dumbass, click **DEPLOY**, and click the screen to grab mouse lock.
@@ -25,43 +36,90 @@ Pick your dumbass, click **DEPLOY**, and click the screen to grab mouse lock.
 | --- | --- |
 | `WASD` | Move |
 | Mouse | Aim / fire |
-| Right mouse (hold) | Aim down sights |
+| Right mouse (hold) | Aim down sights (sniper scopes in) |
 | `Shift` | Sprint |
+| `C` / `Ctrl` | Crouch — press while sprinting to **slide** |
 | `R` | Reload |
-| `G` | Throw grenade |
-| `1` `2` `3` / wheel | Switch weapon |
-| Arrow keys | Turn / move (trackpad fallback) |
+| `G` | Throw grenade (look up to throw farther) |
+| `Tab` / `B` | Shop (between waves) |
+| `1`–`5` / wheel | Switch weapon |
 | `P` / `Esc` | Pause |
-| `M` | Sound effects on/off |
-| `V` | Voice lines on/off |
+| Arrow keys | Turn / move (trackpad fallback) |
+| `M` / `V` / `N` | Toggle SFX / voice / music |
 
 ## What's in it
 
-- **Playable characters** — Beavis or Butt-Head, each with their own voice
-  lines (via the browser's speech synthesis) and portrait.
-- **Three guns + grenades** — the Burrito Blaster 9 (pistol), Turbo Thrasher AK
-  (full auto), and the Nacho Boomstick (shotgun), with magazines, reserve ammo,
-  reloads, damage falloff, and spread.
-- **COD feel** — aim-down-sights zoom, sprint, regenerating health, hitmarkers,
-  dynamic crosshair, damage-direction indicators, screen shake, kill feed,
-  minimap, and rank progression from PRIVATE BUTTMUNCH up to THE GREAT
-  CORNHOLIO (career XP persists in localStorage).
-- **Killstreaks** — 3 kills: *Nacho Rush* (heal + speed), 5: *TP for the
-  Bunghole* (double damage + grenades), 7: *Air Guitar Strike* (everything you
-  can see gets deleted). Take a beating and you lose your streak.
-- **Waves at Highland High** — posers, jocks, and hall monitors pathfind
-  through the school on a flow field; every 5th wave the Principal shows up
-  with a health bar over his combover.
-- **Drops** — ammo crates, grenades, and nachos (+35 HP).
+- **Beavis or Butt-Head** — reference-accurate hand-drawn portraits
+  (the towering blond pompadour, brow ridge, and underbite grin; the tall
+  skull, hooded eyes, giant nostrils, and gums-and-braces smile),
+  per-character traits (Beavis: faster fire and reloads; Butt-Head:
+  +25 HP and faster regen), and their own speech-synthesis one-liners
+  for kills, headshots, killstreaks, shopping, and dying.
+- **Five guns + grenades** — BB-9 Blaster, Scorcher SMG, Thrasher AK, Nacho
+  Boomstick, and the Dillweed .50 bolt sniper with a full scope overlay.
+  Magazines, reserves, damage falloff, spread, recoil, tracers, shell
+  casings, and bullet-hole decals.
+- **Modern movement & gunfeel** — sprint, slide, crouch, ADS with true
+  iron-sight alignment, weapon sway/inertia, camera roll on strafe and
+  slide, real vertical aim with **headshots** (look up at heads — pitch
+  matters), and lower profile means enemies miss more.
+- **The economy** — kills pay cash; between waves hit `Tab` for the School
+  Store: buy weapons, ammo, armor plates, grenades, and three perks
+  (Winger Grip, Nacho Body, Fast Hands).
+- **COD systems** — regenerating health + armor, hitmarkers (white/head/kill
+  variants), dynamic crosshair, damage-direction arcs + compass pings,
+  medals (HEADSHOT, LONGSHOT, POINT BLANK, ONE TAP, DOUBLE/TRIPLE/MEGA KILL,
+  SLIDE KILL…), floating damage numbers, kill feed, rotating minimap,
+  rank progression with an XP bar (PRIVATE BUTTMUNCH → THE GREAT CORNHOLIO,
+  career XP persists), and killstreaks at 3/5/7 kills.
+- **Waves at Highland High** — posers, skaters (fast, erratic, swing
+  skateboards), jocks, hall monitors, charging Coach Buzzcut Jr., and
+  Principal McDoom as the boss every 5th wave with a top-bar health meter.
+  From wave 8, armored **elites** appear. Attack tokens keep the mob honest —
+  only a few enemies engage at once while the rest flank and orbit.
+- **Audio** — layered synthesized gunshots, positional stereo panning
+  (footsteps and shots pan by direction), UI sounds, and a dynamic tension
+  music bed that intensifies with the horde.
+- **Settings** — sensitivity, FOV, SFX/music volume, voice, damage numbers,
+  screen shake, rotating minimap; all persisted.
 
 ## Engine notes
 
-- Classic DDA raycaster (à la Wolfenstein 3D) drawing 2px textured columns,
-  with a z-buffer for billboard sprites (enemies, pickups, grenades, particles).
-- Enemy pathfinding is one shared BFS flow field from the player, recomputed a
-  few times per second; enemies steer downhill on it plus local separation.
-- All art is drawn to offscreen canvases on load; all SFX are synthesized with
-  WebAudio oscillators and filtered noise.
+- **Real-time 3D (WebGL / three.js `0.185`)**: corridor-height PBR walls
+  with procedural normal maps, a sunlit floor, concrete wall trim, crate
+  and sandbag cover you can actually fight around, a distant city
+  skyline, drifting clouds, a visible sun with glow, floating dust
+  motes, warm directional sun with soft dynamic shadows, and distance
+  fog.
+- **Cinematic post stack** (pmndrs `postprocessing`): SSAO ambient
+  occlusion, HDR bloom, AGX filmic tone mapping, a color grade
+  (saturation, contrast), vignette, film grain, and SMAA — toggleable in
+  settings.
+- **3D first-person weapons**: all five guns are real 3D models riding
+  the camera — with your character's arms and hands on them — with hip
+  and true iron-sight ADS positions, sway, recoil kick, reload and swap
+  animation, sprint/slide poses, and a muzzle flash that lights the
+  walls.
+- **Human-proportioned 3D characters**: each enemy type is a
+  procedurally-assembled rig (letterman jackets, mohawks, backwards
+  caps, sashes, skateboards, elite armor + helmets) with face textures,
+  walk/attack animation, telegraphed windups, and physical death falls.
+- **True 3D combat**: shots raycast through the actual camera with
+  separate head/body colliders, 3D tracers, bullet-hole decals stuck to
+  surfaces with their normals, shell casings, and grenades that arc in
+  3D. Crates and barriers block movement and bullets but you can shoot
+  over them.
+- **Native-resolution + dynamic scaling**: renders at your display's
+  resolution (devicePixelRatio-aware, up to 1440p internal) and steps
+  the internal resolution down/up automatically to hold frame rate. The
+  HUD is a separate vector-drawn overlay, razor sharp at any size.
+- Gameplay simulation stays on the 2D grid: enemies pathfind on a shared
+  BFS flow field with local separation, LOS chases, standoff orbiting,
+  and attack tokens. All SFX are WebAudio synthesis; portraits and HUD
+  art are drawn to canvases at load.
+
+Append `?debug=1` to the URL for an FPS counter and `Game.cheat`
+(god/cash/wave/give/nuke) — handy for poking at later waves.
 
 ---
 
