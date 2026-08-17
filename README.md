@@ -1,9 +1,10 @@
 # Beavis & Butt-Head Shooter — Huh-Huh Warfare
 
 A modern, Call-of-Duty-flavored first-person wave shooter starring Beavis and
-Butt-Head, on a hand-rolled raycasting engine. Zero dependencies, zero build
-step, zero asset files — every texture, sprite, portrait, and sound is
-generated in the browser at runtime.
+Butt-Head, rendered in clean stylized 3D (WebGL). Zero build step, zero asset
+files, no network needed — the 3D engine (three.js) is vendored in the repo,
+and every texture, character, portrait, and sound is generated in code at
+runtime.
 
 ## Play
 
