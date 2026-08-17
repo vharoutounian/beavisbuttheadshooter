@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<canvas id="game" width="960" height="540"></canvas>
+<canvas id="game" width="1280" height="720"></canvas>
 
 <div id="ui">
   <!-- ============================================= main menu -->
@@ -20,25 +20,48 @@
       <div id="card-beavis" class="card">
         <div class="face"></div>
         <h2>BEAVIS</h2>
-        <p>“FIRE! FIRE!”</p>
+        <p class="quote">“FIRE! FIRE!”</p>
+        <p class="trait">CORNHOLIO TWITCH<br><span>+fire rate · +reload speed</span></p>
       </div>
       <div id="card-butthead" class="card">
         <div class="face"></div>
         <h2>BUTT-HEAD</h2>
-        <p>“UH HUH HUH. COOL.”</p>
+        <p class="quote">“UH HUH HUH. COOL.”</p>
+        <p class="trait">THICK SKULL<br><span>+25 max health · faster regen</span></p>
       </div>
     </div>
 
-    <button id="btn-start" class="big">DEPLOY, DUMBASS</button>
+    <div class="menu-buttons">
+      <button id="btn-start" class="big">DEPLOY, DUMBASS</button>
+      <button id="btn-settings">SETTINGS</button>
+    </div>
     <p id="career" class="career"></p>
+
+    <div id="settings-panel" class="settings hidden">
+      <div class="setrow"><label>MOUSE SENSITIVITY</label>
+        <input id="set-sens" type="range" min="0.4" max="2.5" step="0.05"><b id="set-sens-val"></b></div>
+      <div class="setrow"><label>FIELD OF VIEW</label>
+        <input id="set-fov" type="range" min="60" max="85" step="1"><b id="set-fov-val"></b></div>
+      <div class="setrow"><label>SFX VOLUME</label>
+        <input id="set-sfx" type="range" min="0" max="1" step="0.05"><b id="set-sfx-val"></b></div>
+      <div class="setrow"><label>MUSIC VOLUME</label>
+        <input id="set-music" type="range" min="0" max="1" step="0.05"><b id="set-music-val"></b></div>
+      <div class="setchecks">
+        <label><input id="set-musicon" type="checkbox"> MUSIC</label>
+        <label><input id="set-voice" type="checkbox"> VOICE LINES</label>
+        <label><input id="set-dmg" type="checkbox"> DAMAGE NUMBERS</label>
+        <label><input id="set-shake" type="checkbox"> SCREEN SHAKE</label>
+        <label><input id="set-maprot" type="checkbox"> ROTATING MINIMAP</label>
+      </div>
+    </div>
 
     <div class="controls">
       <div><b>WASD</b> move</div><div><b>MOUSE</b> aim / fire</div>
       <div><b>RIGHT&nbsp;MOUSE</b> aim down sights</div><div><b>SHIFT</b> sprint</div>
-      <div><b>R</b> reload</div><div><b>G</b> grenade</div>
-      <div><b>1&nbsp;2&nbsp;3 / WHEEL</b> weapons</div><div><b>P / ESC</b> pause</div>
-      <div><b>ARROWS</b> turn / move</div><div></div>
-      <div><b>M</b> sound on/off</div><div><b>V</b> voice on/off</div>
+      <div><b>C / CTRL</b> crouch · slide while sprinting</div><div><b>R</b> reload</div>
+      <div><b>G</b> grenade</div><div><b>TAB</b> shop (between waves)</div>
+      <div><b>1–5 / WHEEL</b> weapons</div><div><b>P / ESC</b> pause</div>
+      <div><b>ARROWS</b> turn / move</div><div><b>M · V · N</b> sfx · voice · music</div>
     </div>
 
     <p class="fineprint">Unofficial parody fan game. Beavis and Butt-Head are trademarks of
@@ -63,10 +86,15 @@
   </div>
 </div>
 
+<script src="js/config.js"></script>
 <script src="js/map.js"></script>
+<script src="js/characters.js"></script>
 <script src="js/textures.js"></script>
 <script src="js/audio.js"></script>
+<script src="js/fx.js"></script>
 <script src="js/game.js"></script>
+<script src="js/render.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/main.js"></script>
 </body>
 </html>

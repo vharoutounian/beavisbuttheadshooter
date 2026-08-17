@@ -1,16 +1,15 @@
 # Beavis & Butt-Head Shooter — Huh-Huh Warfare
 
-A Call-of-Duty-flavored first-person wave shooter starring Beavis and Butt-Head,
-running on a hand-rolled raycasting engine. Zero dependencies, zero build step,
-zero asset files — every texture, sprite, and sound is generated in the browser
-at runtime.
+A modern, Call-of-Duty-flavored first-person wave shooter starring Beavis and
+Butt-Head, on a hand-rolled raycasting engine. Zero dependencies, zero build
+step, zero asset files — every texture, sprite, portrait, and sound is
+generated in the browser at runtime.
 
 ## Play
 
 Open `index.html` in a browser. That's it.
 
-If your browser is picky about `file://` pages (pointer lock usually works fine,
-but just in case), serve it locally:
+If your browser is picky about `file://` pages, serve it locally:
 
 ```sh
 python3 -m http.server 8000
@@ -25,43 +24,67 @@ Pick your dumbass, click **DEPLOY**, and click the screen to grab mouse lock.
 | --- | --- |
 | `WASD` | Move |
 | Mouse | Aim / fire |
-| Right mouse (hold) | Aim down sights |
+| Right mouse (hold) | Aim down sights (sniper scopes in) |
 | `Shift` | Sprint |
+| `C` / `Ctrl` | Crouch — press while sprinting to **slide** |
 | `R` | Reload |
-| `G` | Throw grenade |
-| `1` `2` `3` / wheel | Switch weapon |
-| Arrow keys | Turn / move (trackpad fallback) |
+| `G` | Throw grenade (look up to throw farther) |
+| `Tab` / `B` | Shop (between waves) |
+| `1`–`5` / wheel | Switch weapon |
 | `P` / `Esc` | Pause |
-| `M` | Sound effects on/off |
-| `V` | Voice lines on/off |
+| Arrow keys | Turn / move (trackpad fallback) |
+| `M` / `V` / `N` | Toggle SFX / voice / music |
 
 ## What's in it
 
-- **Playable characters** — Beavis or Butt-Head, each with their own voice
-  lines (via the browser's speech synthesis) and portrait.
-- **Three guns + grenades** — the Burrito Blaster 9 (pistol), Turbo Thrasher AK
-  (full auto), and the Nacho Boomstick (shotgun), with magazines, reserve ammo,
-  reloads, damage falloff, and spread.
-- **COD feel** — aim-down-sights zoom, sprint, regenerating health, hitmarkers,
-  dynamic crosshair, damage-direction indicators, screen shake, kill feed,
-  minimap, and rank progression from PRIVATE BUTTMUNCH up to THE GREAT
-  CORNHOLIO (career XP persists in localStorage).
-- **Killstreaks** — 3 kills: *Nacho Rush* (heal + speed), 5: *TP for the
-  Bunghole* (double damage + grenades), 7: *Air Guitar Strike* (everything you
-  can see gets deleted). Take a beating and you lose your streak.
-- **Waves at Highland High** — posers, jocks, and hall monitors pathfind
-  through the school on a flow field; every 5th wave the Principal shows up
-  with a health bar over his combover.
-- **Drops** — ammo crates, grenades, and nachos (+35 HP).
+- **Beavis or Butt-Head** — faithful hand-drawn portraits, per-character
+  traits (Beavis: faster fire and reloads; Butt-Head: +25 HP and faster
+  regen), and their own speech-synthesis one-liners for kills, headshots,
+  killstreaks, shopping, and dying.
+- **Five guns + grenades** — BB-9 Blaster, Scorcher SMG, Thrasher AK, Nacho
+  Boomstick, and the Dillweed .50 bolt sniper with a full scope overlay.
+  Magazines, reserves, damage falloff, spread, recoil, tracers, shell
+  casings, and bullet-hole decals.
+- **Modern movement & gunfeel** — sprint, slide, crouch, ADS with true
+  iron-sight alignment, weapon sway/inertia, camera roll on strafe and
+  slide, real vertical aim with **headshots** (look up at heads — pitch
+  matters), and lower profile means enemies miss more.
+- **The economy** — kills pay cash; between waves hit `Tab` for the School
+  Store: buy weapons, ammo, armor plates, grenades, and three perks
+  (Winger Grip, Nacho Body, Fast Hands).
+- **COD systems** — regenerating health + armor, hitmarkers (white/head/kill
+  variants), dynamic crosshair, damage-direction arcs + compass pings,
+  medals (HEADSHOT, LONGSHOT, POINT BLANK, ONE TAP, DOUBLE/TRIPLE/MEGA KILL,
+  SLIDE KILL…), floating damage numbers, kill feed, rotating minimap,
+  rank progression with an XP bar (PRIVATE BUTTMUNCH → THE GREAT CORNHOLIO,
+  career XP persists), and killstreaks at 3/5/7 kills.
+- **Waves at Highland High** — posers, skaters (fast, erratic, swing
+  skateboards), jocks, hall monitors, charging Coach Buzzcut Jr., and
+  Principal McDoom as the boss every 5th wave with a top-bar health meter.
+  From wave 8, armored **elites** appear. Attack tokens keep the mob honest —
+  only a few enemies engage at once while the rest flank and orbit.
+- **Audio** — layered synthesized gunshots, positional stereo panning
+  (footsteps and shots pan by direction), UI sounds, and a dynamic tension
+  music bed that intensifies with the horde.
+- **Settings** — sensitivity, FOV, SFX/music volume, voice, damage numbers,
+  screen shake, rotating minimap; all persisted.
 
 ## Engine notes
 
-- Classic DDA raycaster (à la Wolfenstein 3D) drawing 2px textured columns,
-  with a z-buffer for billboard sprites (enemies, pickups, grenades, particles).
-- Enemy pathfinding is one shared BFS flow field from the player, recomputed a
-  few times per second; enemies steer downhill on it plus local separation.
-- All art is drawn to offscreen canvases on load; all SFX are synthesized with
-  WebAudio oscillators and filtered noise.
+- DDA raycaster drawing textured 2px wall columns at 1280×720, plus a true
+  perspective **floor and ceiling caster** (typed-array pixel pass with
+  distance fog and ceiling light panels), z-buffered billboard sprites with
+  shadows, and eye-height support for crouch/slide.
+- Enemies pathfind on a shared BFS flow field recomputed a few times per
+  second, with local separation, line-of-sight chases, standoff orbiting,
+  and windup-telegraphed attacks.
+- All art is drawn to offscreen canvases at load (walls, floor/ceiling
+  tiles, six enemy types × 10 animation frames each + elite variants,
+  five weapon viewmodels, pickups, the scope, portraits); all SFX are
+  WebAudio synthesis.
+
+Append `?debug=1` to the URL for an FPS counter and `Game.cheat`
+(god/cash/wave/give/nuke) — handy for poking at later waves.
 
 ---
 

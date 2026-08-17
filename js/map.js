@@ -1,37 +1,40 @@
 // Highland High — the map. Grid tiles:
-// '#' brick  'L' lockers  'C' chalkboard  'M' gym metal  '.' floor
-// 'S' enemy spawn point   'P' player start
+// '#' brick  'L' lockers  'C' chalkboard  'M' gym metal  'P' poster wall
+// 'D' exit door  'T' cafeteria tile  '.' floor
+// 'S' enemy spawn point   '@' player start
 const GameMap = (() => {
-  const W = 32, H = 24;
+  const W = 36, H = 26;
 
   const LAYOUT = [
-    "################################",
-    "#S.....L........L..........L..S#",
-    "#......L.CCCCC..L..CCCCCC..L...#",
-    "#..##..L.C...C..L..C....C......#",
-    "#..##..L.C...C..L..C....C..L...#",
-    "#......L.CC.CC..L..CC..CC..L...#",
-    "#......L........L..........L...#",
-    "#LL.LLLL........LL.LL.LLLLLL...#",
-    "#..............................#",
-    "#..MMMM..MM..........MMMM..M...#",
-    "#..M......M....P.....M.....M...#",
-    "#..M......M..........M.....M...#",
-    "#..MM.MMMMM..........MM.MMMM...#",
-    "#..............................#",
-    "#CCCC.CCC.....LL.LL.....CCCCCC.#",
-    "#C......C.....L...L.....C....C.#",
-    "#C......C.....L...L.....C....C.#",
-    "#C..CC..C.....L...L.....CC..CC.#",
-    "#....C........L...L.........C..#",
-    "#S...C........L...L.........C.S#",
-    "#....................##........#",
-    "#..#....#....##....#....#...#..#",
-    "#S............................S#",
-    "################################",
+    "####################################",
+    "#S.....L.........LL.........L.....S#",
+    "#......L..CCCCC..LL..CCCCC..L......#",
+    "#..##..L..C...C......C...C..L..##..#",
+    "#..##..L..C...C......C...C..L..##..#",
+    "#......L..CC.CC..LL..CC.CC..L......#",
+    "#......L.........LL.........L......#",
+    "#LLL.LLL..........DD........LLL.LLL#",
+    "#..................................#",
+    "#..MMMMM..MM............MM..MMMMM..#",
+    "#..M........M..........M........M..#",
+    "#..M........M....@.....M........M..#",
+    "#..M........M..........M........M..#",
+    "#..MM.MMMMMMM..........MMMMMMM.MM..#",
+    "#..................................#",
+    "#TTT.TTT....................PPP.PPP#",
+    "#T.....T.....LL....LL.......P.....P#",
+    "#T.....T.....L......L.......P.....P#",
+    "#T..T..T.....L......L.......P..P..P#",
+    "#....T.......LL....LL..........P...#",
+    "#S...T.....................D...P..S#",
+    "#....................##............#",
+    "#..#....#....####....#....#....#...#",
+    "#S................................S#",
+    "#.....D.......................D....#",
+    "####################################",
   ];
 
-  const TILE = { '#': 1, 'L': 2, 'C': 3, 'M': 4 };
+  const TILE = { '#': 1, 'L': 2, 'C': 3, 'M': 4, 'P': 5, 'D': 6, 'T': 7 };
 
   const grid = [];        // 0 = floor, >0 = wall texture id
   const spawns = [];
@@ -43,9 +46,9 @@ const GameMap = (() => {
     const out = new Array(W);
     for (let x = 0; x < W; x++) {
       let ch = row[x];
-      if (y === 0 || y === H - 1 || x === 0 || x === W - 1) ch = '#';
+      if (y === 0 || y === H - 1 || x === 0 || x === W - 1) ch = ch === 'D' ? 'D' : '#';
       if (ch === 'S') { spawns.push({ x: x + 0.5, y: y + 0.5 }); ch = '.'; }
-      if (ch === 'P') { playerStart = { x: x + 0.5, y: y + 0.5 }; ch = '.'; }
+      if (ch === '@') { playerStart = { x: x + 0.5, y: y + 0.5 }; ch = '.'; }
       out[x] = TILE[ch] || 0;
     }
     grid.push(out);
@@ -72,7 +75,6 @@ const GameMap = (() => {
       const cur = queue[head++];
       const cx = cur % W, cy = (cur / W) | 0;
       const d = field[cur] + 1;
-      // 4-connected keeps paths out of wall corners
       const nbs = [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]];
       for (const [nx, ny] of nbs) {
         if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
