@@ -73,24 +73,28 @@ Pick your dumbass, click **DEPLOY**, and click the screen to grab mouse lock.
 
 ## Engine notes
 
-- **Native-resolution rendering**: the canvas matches your display
-  (devicePixelRatio-aware, up to 1440p internal) with per-pixel wall
-  columns on most screens, and a **dynamic resolution scaler** that drops
-  internal resolution automatically if the frame rate can't hold, then
-  climbs back. All art (walls, six enemy types, five weapon viewmodels,
-  pickups) is generated at 2× and the HUD is vector-drawn at native
-  resolution, so everything stays crisp.
-- DDA raycaster with a true perspective **floor and ceiling caster**
-  (typed-array pixel pass with distance fog and ceiling light panels),
-  z-buffered billboard sprites with shadows, and eye-height support for
-  crouch/slide.
-- Enemies pathfind on a shared BFS flow field recomputed a few times per
-  second, with local separation, line-of-sight chases, standoff orbiting,
-  and windup-telegraphed attacks.
-- All art is drawn to offscreen canvases at load (walls, floor/ceiling
-  tiles, six enemy types × 10 animation frames each + elite variants,
-  five weapon viewmodels, pickups, the scope, portraits); all SFX are
-  WebAudio synthesis.
+- **Real-time 3D (WebGL / three.js, vendored — still zero setup)**: the
+  school is true 3D geometry under an open sky — instanced textured wall
+  blocks, a sunlit floor, drifting clouds, a warm directional sun with
+  soft dynamic shadows, hemisphere ambient, distance fog, ACES tone
+  mapping, and a bloom pass. Bright, clean, stylized.
+- **Chunky 3D characters**: each enemy type is a procedurally-assembled
+  big-headed rig (letterman jackets, mohawks, backwards caps, sashes,
+  skateboards, elite armor + helmets) with face textures, walk/attack
+  animation, telegraphed windups, and physical death falls. All
+  generated in code — no model files.
+- **True 3D combat**: shots raycast through the actual camera with
+  separate head/body colliders (aim up at heads for headshots), 3D
+  tracers, bullet-hole decals stuck to walls with their normals, shell
+  casings, muzzle flash lighting the walls, and grenades that arc in 3D.
+- **Native-resolution + dynamic scaling**: renders at your display's
+  resolution (devicePixelRatio-aware, up to 1440p internal) and steps
+  the internal resolution down/up automatically to hold frame rate. The
+  HUD is a separate vector-drawn overlay, razor sharp at any size.
+- Gameplay simulation stays on the 2D grid: enemies pathfind on a shared
+  BFS flow field with local separation, LOS chases, standoff orbiting,
+  and attack tokens. All SFX are WebAudio synthesis; portraits and HUD
+  art are drawn to canvases at load.
 
 Append `?debug=1` to the URL for an FPS counter and `Game.cheat`
 (god/cash/wave/give/nuke) — handy for poking at later waves.

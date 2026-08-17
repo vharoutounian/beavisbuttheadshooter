@@ -24,9 +24,9 @@ const Fx = (() => {
     if (particles.length > 500) particles.splice(0, particles.length - 500);
   }
 
-  // A bright streak from (x0,y0) to (x1,y1) at mid height, fades fast.
-  function tracer(x0, y0, x1, y1) {
-    tracers.push({ x0, y0, x1, y1, t: 0.07, max: 0.07 });
+  // A bright streak from (x0,y0,z0) to (x1,y1,z1); z is height in meters.
+  function tracer(x0, y0, x1, y1, z0, z1) {
+    tracers.push({ x0, y0, x1, y1, z0, z1, t: 0.07, max: 0.07 });
     if (tracers.length > 40) tracers.shift();
   }
 

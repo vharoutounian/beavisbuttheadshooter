@@ -8,7 +8,7 @@ html, body {
   user-select: none;
 }
 
-#game {
+#game, #hud {
   position: fixed;
   inset: 0;
   width: 100vw;
@@ -16,6 +16,10 @@ html, body {
   object-fit: contain;
   background: #000;
   cursor: crosshair;
+}
+#hud {
+  background: transparent;
+  pointer-events: none;    /* clicks fall through to the game canvas */
 }
 
 #ui { position: fixed; inset: 0; pointer-events: none; }

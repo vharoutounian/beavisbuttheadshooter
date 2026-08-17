@@ -9,6 +9,7 @@
 </head>
 <body>
 <canvas id="game" width="1280" height="720"></canvas>
+<canvas id="hud" width="1280" height="720"></canvas>
 
 <div id="ui">
   <!-- ============================================= main menu -->
@@ -86,6 +87,14 @@
   </div>
 </div>
 
+<script src="vendor/three.min.js"></script>
+<script src="vendor/CopyShader.js"></script>
+<script src="vendor/LuminosityHighPassShader.js"></script>
+<script src="vendor/GammaCorrectionShader.js"></script>
+<script src="vendor/EffectComposer.js"></script>
+<script src="vendor/RenderPass.js"></script>
+<script src="vendor/ShaderPass.js"></script>
+<script src="vendor/UnrealBloomPass.js"></script>
 <script src="js/config.js"></script>
 <script src="js/map.js"></script>
 <script src="js/characters.js"></script>
@@ -93,7 +102,8 @@
 <script src="js/audio.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/game.js"></script>
-<script src="js/render.js"></script>
+<script src="js/hud.js"></script>
+<script src="js/render3d.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>
 </body>

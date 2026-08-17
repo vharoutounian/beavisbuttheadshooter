@@ -8,7 +8,8 @@
     const mode = Game.S.mode;
     if (mode === 'playing') Game.update(dt);
     else if (mode === 'menu') Game.updateAttract(dt);
-    Renderer.render(dt);
+    Renderer.render(dt);   // 3D world
+    Hud.render(dt);        // 2D overlay
   }
   requestAnimationFrame(tick);
 })();

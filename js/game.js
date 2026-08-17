@@ -283,6 +283,7 @@ const Game = (() => {
     return {
       x: p.x + ca * 0.45 - sa * 0.12,
       y: p.y + sa * 0.45 + ca * 0.12,
+      z: p.eye * 1.3 - 0.06,
     };
   }
 
@@ -308,50 +309,37 @@ const Game = (() => {
     if (sp.slot !== 5) Fx.shell(W * 0.6, H * 0.66);
     if (sp.scope) setTimeout(() => { if (S.mode === 'playing') Sound.play('bolt'); }, 260);
 
-    const aimHorizon = H / 2 + p.pitch + p.recoilPitch;
+    // true 3D hitscan through the camera (Renderer raycasts scene geometry)
     const mz = muzzleWorld();
     const spread = currentSpread();
     let hitAny = false, killedAny = false, headAny = false;
 
     for (let i = 0; i < sp.pellets; i++) {
-      const a = p.a + (Math.random() - 0.5) * 2 * spread;
-      const dx = Math.cos(a), dy = Math.sin(a);
-      const wall = castRay(p.x, p.y, dx, dy);
-      let best = null, bestT = wall.dist, bestHead = false;
-      for (const e of S.enemies) {
-        if (e.dead) continue;
-        const relX = e.x - p.x, relY = e.y - p.y;
-        const t = relX * dx + relY * dy;
-        if (t <= 0.05 || t >= bestT) continue;
-        const perp = Math.abs(relX * dy - relY * dx);
-        if (perp >= 0.34 * e.type.scale) continue;
-        // vertical check: where does the crosshair row land on this sprite?
-        const size = H / t;
-        const sh = size * 0.95 * e.type.scale;
-        const bottom = aimHorizon + size * p.eye;
-        const top = bottom - sh;
-        const frac = (H / 2 - top) / sh;
-        if (frac < -0.06 || frac > 1.04) continue;      // sailed over / under
-        best = e; bestT = t; bestHead = frac >= -0.06 && frac < 0.24;
-      }
-      if (best) {
+      const yawOff = (Math.random() - 0.5) * 2 * spread;
+      const pitchOff = (Math.random() - 0.5) * 2 * spread;
+      const hit = Renderer.hitscan(yawOff, pitchOff);
+      if (!hit) continue;
+      if (hit.enemy) {
         hitAny = true;
         let dmg = sp.dmg;
-        if (bestT > sp.falloffStart) {
-          dmg *= clamp(1 - (bestT - sp.falloffStart) / (sp.falloffEnd - sp.falloffStart),
+        if (hit.dist > sp.falloffStart) {
+          dmg *= clamp(1 - (hit.dist - sp.falloffStart) / (sp.falloffEnd - sp.falloffStart),
             sp.minDmgMult, 1);
         }
-        if (bestHead) { dmg *= sp.headshot; headAny = true; }
+        if (hit.head) { dmg *= sp.headshot; headAny = true; }
         if (p.dmgBoost > 0) dmg *= 2;
-        const killed = damageEnemy(best, dmg, bestT, { head: bestHead });
+        const killed = damageEnemy(hit.enemy, dmg, hit.dist, { head: hit.head });
         if (killed) killedAny = true;
-        if (sp.tracer) Fx.tracer(mz.x, mz.y, best.x, best.y);
+        if (sp.tracer)
+          Fx.tracer(mz.x, mz.y, hit.point.x, hit.point.z, mz.z, hit.point.y);
       } else {
-        const hx = p.x + dx * (wall.dist - 0.04), hy = p.y + dy * (wall.dist - 0.04);
-        Fx.burst(hx, hy, { count: 3, color: '#c9b79a', speed: 0.6, life: 0.25, z: 0.45 });
-        Fx.decal(p.x + dx * (wall.dist - 0.02), p.y + dy * (wall.dist - 0.02));
-        if (sp.tracer) Fx.tracer(mz.x, mz.y, hx, hy);
-        if (Math.random() < 0.2) Sound.at('ricochet', hx, hy);
+        // wall / floor impact
+        Renderer.addDecal(hit.point, hit.normal);
+        Fx.burst(hit.point.x, hit.point.z,
+          { count: 3, color: '#c9b79a', speed: 0.6, life: 0.25, z: hit.point.y / 1.3 });
+        if (sp.tracer)
+          Fx.tracer(mz.x, mz.y, hit.point.x, hit.point.z, mz.z, hit.point.y);
+        if (Math.random() < 0.2) Sound.at('ricochet', hit.point.x, hit.point.z);
       }
     }
     if (hitAny) {
