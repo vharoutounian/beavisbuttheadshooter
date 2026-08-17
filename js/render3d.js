@@ -1,8 +1,22 @@
+import * as THREE from 'three';
+import {
+  EffectComposer, RenderPass, NormalPass, DepthDownsamplingPass, EffectPass,
+  SSAOEffect, BloomEffect, ToneMappingEffect, ToneMappingMode,
+  HueSaturationEffect, BrightnessContrastEffect, VignetteEffect, NoiseEffect,
+  SMAAEffect, BlendFunction, KernelSize,
+} from 'postprocessing';
+import { CONFIG, WEAPONS, SLOT_ORDER, CHARACTERS } from './config.js';
+import { GameMap } from './map.js';
+import { Textures } from './textures.js';
+import { Fx } from './fx.js';
+import { Game } from './game.js';   // runtime-only (circular is fine)
+import { Hud } from './hud.js';     // runtime-only (circular is fine)
+
 // The 3D engine: modern-shooter WebGL rendering (three.js).
 // PBR materials with procedural normal maps, realistic character rigs,
 // true 3D first-person weapons, dynamic sun + shadows, SSAO, bloom,
 // film grading, and FXAA. Gameplay stays on the 2D grid in game.js.
-const Renderer = (() => {
+export const Renderer = (() => {
   const canvas = document.getElementById('game');
   const DW = 1280, DH = 720;
   const WALL_H = CONFIG.WALL_H;              // meters
@@ -11,9 +25,9 @@ const Renderer = (() => {
   const renderer = new THREE.WebGLRenderer({
     canvas, antialias: false, powerPreference: 'high-performance',
   });
-  renderer.outputEncoding = THREE.LinearEncoding;   // grade pass does gamma
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.0;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  // Tone mapping happens in post (AGX) so bloom operates on linear HDR values.
+  renderer.toneMapping = THREE.NoToneMapping;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -29,7 +43,7 @@ const Renderer = (() => {
     let t = texCache.get(key);
     if (!t) {
       t = new THREE.CanvasTexture(c);
-      if (srgb) t.encoding = THREE.sRGBEncoding;
+      if (srgb) t.colorSpace = THREE.SRGBColorSpace;
       t.wrapS = t.wrapT = THREE.RepeatWrapping;
       t.repeat.set(repeatX, repeatY);
       t.anisotropy = 8;
@@ -69,11 +83,8 @@ const Renderer = (() => {
     return t;
   }
 
-  function std(opts) {
-    const m = new THREE.MeshStandardMaterial(opts);
-    if (opts && opts.color !== undefined) m.color.convertSRGBToLinear();
-    return m;
-  }
+  // modern three's ColorManagement linearizes hex/CSS colors automatically
+  const std = opts => new THREE.MeshStandardMaterial(opts);
   function surface(albedoCanvas, { rough = 0.85, metal = 0, nStrength = 1.4,
     repeatX = 1, repeatY = 1 } = {}) {
     const nm = normalFromCanvas(albedoCanvas, nStrength);
@@ -87,7 +98,7 @@ const Renderer = (() => {
 
   // ------------------------------------------------------------- sizing
   let W = 1280, H = 720, renderScale = 1;
-  let composer = null, bloomPass = null, ssaoPass = null, fxaaPass = null, gradePass = null;
+  let composer = null, ssaoPass = null, smaaPass = null;
   function setSize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const cssW = window.innerWidth || DW, cssH = window.innerHeight || DH;
@@ -98,12 +109,7 @@ const Renderer = (() => {
     renderer.setSize(W, H, false);
     camera.aspect = 16 / 9;
     camera.updateProjectionMatrix();
-    if (composer) {
-      composer.setSize(W, H);
-      bloomPass.setSize(W / 2, H / 2);
-      ssaoPass.setSize(W, H);
-      fxaaPass.uniforms.resolution.value.set(1 / W, 1 / H);
-    }
+    if (composer) composer.setSize(W, H);
     if (typeof Hud !== 'undefined') Hud.setSize();
   }
   let resizeTimer = null;
@@ -431,7 +437,7 @@ const Renderer = (() => {
     fg.strokeStyle = 'rgba(60,30,10,0.85)'; fg.lineWidth = 5;
     fg.beginPath(); fg.moveTo(46, 100); fg.quadraticCurveTo(64, 90, 82, 100); fg.stroke();
     const t = new THREE.CanvasTexture(c);
-    t.encoding = THREE.sRGBEncoding;
+    t.colorSpace = THREE.SRGBColorSpace;
     faceTexOf.set(typeName, t);
     return t;
   }
@@ -980,60 +986,56 @@ const Renderer = (() => {
   }
 
   // ------------------------------------------------------------ post fx
-  const GradeShader = {
-    uniforms: {
-      tDiffuse: { value: null },
-      time: { value: 0 },
-    },
-    vertexShader: `
-      varying vec2 vUv;
-      void main() {
-        vUv = uv;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }`,
-    fragmentShader: `
-      varying vec2 vUv;
-      uniform sampler2D tDiffuse;
-      uniform float time;
-      float rand(vec2 c) { return fract(sin(dot(c, vec2(12.9898, 78.233))) * 43758.5453); }
-      void main() {
-        vec4 col = texture2D(tDiffuse, vUv);
-        col.rgb = pow(max(col.rgb, 0.0), vec3(1.0 / 2.2));            // gamma
-        float l = dot(col.rgb, vec3(0.299, 0.587, 0.114));
-        col.rgb = mix(vec3(l), col.rgb, 1.14);                        // saturation
-        col.rgb = (col.rgb - 0.5) * 1.07 + 0.5;                       // contrast
-        // teal shadows / warm highlights
-        col.rgb += mix(vec3(-0.012, 0.008, 0.028), vec3(0.025, 0.012, -0.012),
-                       smoothstep(0.15, 0.85, l)) * 0.85;
-        // vignette
-        float d = distance(vUv, vec2(0.5, 0.5));
-        col.rgb *= 0.78 + 0.25 * smoothstep(0.82, 0.42, d);
-        // grain
-        col.rgb += (rand(vUv * (100.0 + fract(time) * 37.0)) - 0.5) * 0.028;
-        gl_FragColor = vec4(col.rgb, 1.0);
-      }`,
-  };
+  composer = new EffectComposer(renderer, { frameBufferType: THREE.HalfFloatType });
+  composer.addPass(new RenderPass(scene, camera));
 
-  composer = new THREE.EffectComposer(renderer);
-  composer.addPass(new THREE.RenderPass(scene, camera));
-  ssaoPass = new THREE.SSAOPass(scene, camera, W, H);
-  ssaoPass.kernelRadius = 0.42;
-  ssaoPass.minDistance = 0.0008;
-  ssaoPass.maxDistance = 0.2;
-  ssaoPass.output = THREE.SSAOPass.OUTPUT.Default;
+  const normalPass = new NormalPass(scene, camera);
+  composer.addPass(normalPass);
+  const depthDownsample = new DepthDownsamplingPass({
+    normalBuffer: normalPass.texture,
+    resolutionScale: 0.5,
+  });
+  composer.addPass(depthDownsample);
+  const ssaoEffect = new SSAOEffect(camera, normalPass.texture, {
+    blendFunction: BlendFunction.MULTIPLY,
+    distanceScaling: true,
+    depthAwareUpsampling: true,
+    normalDepthBuffer: depthDownsample.texture,
+    samples: 14, rings: 5,
+    luminanceInfluence: 0.65,
+    radius: 0.09, intensity: 2.2, bias: 0.028, fade: 0.02,
+    resolutionScale: 0.5,
+    color: new THREE.Color(0x0a0704),
+    worldDistanceThreshold: 22, worldDistanceFalloff: 6,
+    worldProximityThreshold: 0.5, worldProximityFalloff: 0.2,
+  });
+  ssaoPass = new EffectPass(camera, ssaoEffect);
   composer.addPass(ssaoPass);
-  bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(640, 360), 0.28, 0.65, 0.88);
-  composer.addPass(bloomPass);
-  gradePass = new THREE.ShaderPass(GradeShader);
-  composer.addPass(gradePass);
-  fxaaPass = new THREE.ShaderPass(THREE.FXAAShader);
-  composer.addPass(fxaaPass);
+
+  const bloomEffect = new BloomEffect({
+    blendFunction: BlendFunction.ADD,
+    mipmapBlur: true,
+    luminanceThreshold: 0.72, luminanceSmoothing: 0.34,
+    intensity: 1.1, radius: 0.7, levels: 8,
+    kernelSize: KernelSize.MEDIUM,
+  });
+  const toneEffect = new ToneMappingEffect({ mode: ToneMappingMode.AGX });
+  const gradeEffect = new HueSaturationEffect({ hue: 0, saturation: 0.14 });
+  const contrastEffect = new BrightnessContrastEffect({ brightness: 0.012, contrast: 0.1 });
+  const vignetteEffect = new VignetteEffect({ offset: 0.28, darkness: 0.55 });
+  const noiseEffect = new NoiseEffect({ blendFunction: BlendFunction.OVERLAY, premultiply: true });
+  noiseEffect.blendMode.opacity.value = 0.05;
+  composer.addPass(new EffectPass(camera,
+    bloomEffect, toneEffect, gradeEffect, contrastEffect, vignetteEffect, noiseEffect));
+
+  smaaPass = new EffectPass(camera, new SMAAEffect());
+  composer.addPass(smaaPass);
   setSize();
 
   function applyQuality() {
     const on = Game.settings.postfx !== false;
     ssaoPass.enabled = on;
-    fxaaPass.enabled = on;
+    smaaPass.enabled = on;
   }
 
   // ------------------------------------------------------------- camera
@@ -1108,13 +1110,12 @@ const Renderer = (() => {
       pGeo.setDrawRange(0, 0);
       tGeo.setDrawRange(0, 0);
     }
-    gradePass.uniforms.time.value = (performance.now() % 10000) / 1000;
     composer.render();
   }
 
   function onRunStart(character) {
     Hud.onRunStart(character);
-    sleeveMat.color.set(CHARACTERS[character].sleeve).convertSRGBToLinear();
+    sleeveMat.color.set(CHARACTERS[character].sleeve);
     swayA = 0; swayP = 0; prevA = null; prevPitch = 0;
   }
 

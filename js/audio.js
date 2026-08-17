@@ -1,7 +1,9 @@
+import { CHARACTERS } from './config.js';
+
 // Everything is synthesized with WebAudio; voice lines use speechSynthesis.
 // Sounds can be positional: Sound.at(name, x, y) pans/attenuates relative to
 // the listener set each frame via Sound.listener(x, y, angle).
-const Sound = (() => {
+export const Sound = (() => {
   let ctx = null, sfxBus = null, musicBus = null, noiseBuf = null;
   const state = { sfx: true, voice: true, music: true };
   const vol = { sfx: 0.8, music: 0.45 };
@@ -227,7 +229,7 @@ const Sound = (() => {
     lastSpeak = now;
     try {
       const u = new SpeechSynthesisUtterance(text);
-      const v = (typeof CHARACTERS !== 'undefined' && CHARACTERS[who]) ? CHARACTERS[who].voice : {};
+      const v = (CHARACTERS[who] && CHARACTERS[who].voice) || {};
       u.pitch = v.pitch ?? 1;
       u.rate = v.rate ?? 1;
       u.volume = 0.9;

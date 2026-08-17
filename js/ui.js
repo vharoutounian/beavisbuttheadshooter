@@ -1,5 +1,13 @@
 // DOM overlays: main menu (with settings), pause, death screen.
-const UI = (() => {
+// Built lazily by initUI() (called from main.js) so module evaluation order
+// never touches half-initialized circular imports.
+import { Game } from './game.js';
+import { Sound } from './audio.js';
+import { Characters } from './characters.js';
+
+export let UI = null;
+export function initUI() {
+  UI = (() => {
   const $ = id => document.getElementById(id);
   const menu = $('menu'), pauseEl = $('pause'), deadEl = $('dead');
   let character = Game.savedCharacter();
@@ -100,4 +108,5 @@ const UI = (() => {
       show(deadEl);
     },
   };
-})();
+  })();
+}

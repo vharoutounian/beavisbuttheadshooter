@@ -1,20 +1,32 @@
 # Beavis & Butt-Head Shooter — Huh-Huh Warfare
 
 A modern, Call-of-Duty-flavored first-person wave shooter starring Beavis and
-Butt-Head, rendered in clean stylized 3D (WebGL). Zero build step, zero asset
-files, no network needed — the 3D engine (three.js) is vendored in the repo,
-and every texture, character, portrait, and sound is generated in code at
-runtime.
+Butt-Head, rendered in clean stylized 3D (WebGL). Zero asset files — every
+texture, character, portrait, and sound is generated in code at runtime.
+
+Built on the same stack as a modern three.js production:
+[three](https://threejs.org/) `0.185` + the pmndrs
+[postprocessing](https://github.com/pmndrs/postprocessing) pipeline, bundled
+with [Vite](https://vitejs.dev/).
 
 ## Play
 
-Open `index.html` in a browser. That's it.
+**Online:** once GitHub Pages is enabled for this repo
+(Settings → Pages → Source → *GitHub Actions*), every push to `main` deploys
+automatically to:
 
-If your browser is picky about `file://` pages, serve it locally:
+> https://vharoutounian.github.io/beavisbuttheadshooter/
+
+**Locally:**
 
 ```sh
-python3 -m http.server 8000
-# then visit http://localhost:8000
+npm install
+npm run dev        # dev server at http://localhost:5173
+```
+
+```sh
+npm run build      # production build into dist/
+npm run preview    # serve the production build
 ```
 
 Pick your dumbass, click **DEPLOY**, and click the screen to grab mouse lock.
@@ -74,15 +86,16 @@ Pick your dumbass, click **DEPLOY**, and click the screen to grab mouse lock.
 
 ## Engine notes
 
-- **Real-time 3D (WebGL / three.js, vendored — still zero setup)**:
-  corridor-height PBR walls with procedural normal maps, a sunlit floor,
-  concrete wall trim, crate and sandbag cover you can actually fight
-  around, a distant city skyline, drifting clouds, a visible sun with
-  glow, floating dust motes, warm directional sun with soft dynamic
-  shadows, distance fog, and ACES tone mapping.
-- **Cinematic post stack**: SSAO ambient occlusion, bloom, a film grade
-  (teal-shadow/warm-highlight split tone, contrast, vignette, grain),
-  and FXAA — toggleable in settings.
+- **Real-time 3D (WebGL / three.js `0.185`)**: corridor-height PBR walls
+  with procedural normal maps, a sunlit floor, concrete wall trim, crate
+  and sandbag cover you can actually fight around, a distant city
+  skyline, drifting clouds, a visible sun with glow, floating dust
+  motes, warm directional sun with soft dynamic shadows, and distance
+  fog.
+- **Cinematic post stack** (pmndrs `postprocessing`): SSAO ambient
+  occlusion, HDR bloom, AGX filmic tone mapping, a color grade
+  (saturation, contrast), vignette, film grain, and SMAA — toggleable in
+  settings.
 - **3D first-person weapons**: all five guns are real 3D models riding
   the camera — with your character's arms and hands on them — with hip
   and true iron-sight ADS positions, sway, recoil kick, reload and swap

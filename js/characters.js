@@ -1,8 +1,10 @@
+import { CHARACTERS } from './config.js';
+
 // Procedural portraits of the two dumbasses, drawn cel-style in a
 // 100x130 design space and scaled. Iterated against reference memory:
 // what matters is the silhouette — Beavis's brow shelf + flame of hair
 // + underbite; Butt-Head's tall skull + curtain part + snout + braces.
-const Characters = (() => {
+export const Characters = (() => {
   const SKIN = '#f0c98c', SKIN_DK = '#d8a862';
   const LINE = '#4a3018';
 

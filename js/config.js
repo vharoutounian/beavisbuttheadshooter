@@ -1,5 +1,5 @@
 // All tuning data lives here. No logic.
-const CONFIG = {
+export const CONFIG = {
   W: 1280, H: 720,          // internal render resolution
   COLW: 2,                  // pixels per wall column
   FLOOR_W: 320, FLOOR_H: 180, // floor/ceiling casting buffer
@@ -21,7 +21,7 @@ const CONFIG = {
   EYE_SCALE: 3.2,           // gameplay eye units (0..1) -> meters
 };
 
-const WEAPONS = {
+export const WEAPONS = {
   pistol: {
     name: 'BB-9 BLASTER', slot: 1, auto: false, pellets: 1,
     dmg: 40, headshot: 1.9, rof: 0.24, mag: 12, maxReserve: 96, reload: 1.05,
@@ -58,9 +58,9 @@ const WEAPONS = {
     adsFov: 15, scope: true, sway: 0.010, price: 4500, sfx: 'shotSniper', tracer: true,
   },
 };
-const SLOT_ORDER = ['pistol', 'smg', 'rifle', 'shotgun', 'sniper'];
+export const SLOT_ORDER = ['pistol', 'smg', 'rifle', 'shotgun', 'sniper'];
 
-const ENEMY_TYPES = {
+export const ENEMY_TYPES = {
   poser: {
     hp: 62, speed: 2.6, dmg: 13, rate: 0.95, range: 1.15, windup: 0.34,
     score: 100, melee: true, scale: 1.0, label: 'POSER',
@@ -94,7 +94,7 @@ const ENEMY_TYPES = {
 };
 
 // waves: [type weights by wave band]
-const WAVE_MIX = [
+export const WAVE_MIX = [
   { from: 1, mix: { poser: 1 } },
   { from: 2, mix: { poser: 0.7, skater: 0.3 } },
   { from: 3, mix: { poser: 0.45, skater: 0.25, jock: 0.3 } },
@@ -102,10 +102,10 @@ const WAVE_MIX = [
   { from: 7, mix: { poser: 0.22, skater: 0.23, jock: 0.25, monitor: 0.2, coach: 0.1 } },
   { from: 10, mix: { poser: 0.15, skater: 0.25, jock: 0.2, monitor: 0.25, coach: 0.15 } },
 ];
-const ELITE_FROM_WAVE = 8;     // elites (armored variants) can appear from here
-const ELITE_CHANCE = 0.18;
+export const ELITE_FROM_WAVE = 8;     // elites (armored variants) can appear from here
+export const ELITE_CHANCE = 0.18;
 
-const RANKS = [
+export const RANKS = [
   [0, 'PRIVATE BUTTMUNCH'],
   [500, 'CORPORAL DILLWEED'],
   [1200, 'SERGEANT DOOFUS'],
@@ -118,7 +118,7 @@ const RANKS = [
   [25000, 'THE GREAT CORNHOLIO'],
 ];
 
-const MEDALS = {
+export const MEDALS = {
   headshot: { label: 'HEADSHOT', bonus: 25, color: '#ff5f5f' },
   longshot: { label: 'LONGSHOT', bonus: 50, color: '#7fd4ff' },
   pointblank: { label: 'POINT BLANK', bonus: 25, color: '#ffb347' },
@@ -130,13 +130,13 @@ const MEDALS = {
   slide: { label: 'SLIDE KILL', bonus: 50, color: '#c39cff' },
 };
 
-const PERKS = {
+export const PERKS = {
   grip: { label: 'WINGER GRIP', desc: '-30% spread & recoil', price: 2000 },
   nacho: { label: 'NACHO BODY', desc: '+50 max health', price: 2500 },
   hands: { label: 'FAST HANDS', desc: '-40% reload & swap time', price: 2000 },
 };
 
-const SHOP = [
+export const SHOP = [
   { type: 'weapon', id: 'smg' },
   { type: 'weapon', id: 'shotgun' },
   { type: 'weapon', id: 'sniper' },
@@ -148,13 +148,13 @@ const SHOP = [
   { type: 'perk', id: 'hands' },
 ];
 
-const KILLSTREAKS = [
+export const KILLSTREAKS = [
   { at: 3, name: 'NACHO RUSH', desc: '+40 HEALTH · SPEED BOOST' },
   { at: 5, name: 'TP FOR THE BUNGHOLE', desc: 'DOUBLE DAMAGE · +2 GRENADES' },
   { at: 7, name: 'AIR GUITAR STRIKE', desc: 'TOTAL CARNAGE' },
 ];
 
-const CHARACTERS = {
+export const CHARACTERS = {
   beavis: {
     label: 'BEAVIS',
     quote: '“FIRE! FIRE! FIRE!”',
@@ -175,7 +175,7 @@ const CHARACTERS = {
   },
 };
 
-const LINES = {
+export const LINES = {
   beavis: {
     kill: ['Heh heh, yes!', 'Fire! Fire!', 'That was cool!', 'Take that, dillweed!',
       'Yes! Yes! Heh heh!', 'Break stuff! Break stuff!'],
@@ -204,7 +204,7 @@ const LINES = {
   },
 };
 
-const DEFAULT_SETTINGS = {
+export const DEFAULT_SETTINGS = {
   sens: 1.0,          // 0.4 .. 2.5
   fov: 68,            // 60 .. 85
   postfx: true,       // SSAO + film grade + FXAA

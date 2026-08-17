@@ -1,6 +1,6 @@
 // World-space effects: particles, tracers, wall decals, floating text.
 // Screen-space effects: ejected shell casings.
-const Fx = (() => {
+export const Fx = (() => {
   let particles = [], tracers = [], decals = [], floaters = [], shells = [];
   const TAU = Math.PI * 2;
 

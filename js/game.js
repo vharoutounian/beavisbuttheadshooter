@@ -1,6 +1,17 @@
+import {
+  CONFIG, WEAPONS, SLOT_ORDER, ENEMY_TYPES, WAVE_MIX, ELITE_FROM_WAVE,
+  ELITE_CHANCE, RANKS, MEDALS, PERKS, SHOP, CHARACTERS, LINES, DEFAULT_SETTINGS,
+} from './config.js';
+import { GameMap } from './map.js';
+import { Textures } from './textures.js';
+import { Sound } from './audio.js';
+import { Fx } from './fx.js';
+import { Renderer } from './render3d.js';   // runtime-only (circular is fine)
+import { UI } from './ui.js';               // runtime-only live binding
+
 // Core simulation: player, weapons, AI, waves, economy. No drawing in here —
 // the Renderer reads Game.S every frame.
-const Game = (() => {
+export const Game = (() => {
   const canvas = document.getElementById('game');
   const TAU = Math.PI * 2;
   const { W, H } = CONFIG;
@@ -1140,6 +1151,7 @@ const Game = (() => {
       god: () => { S.player.hp = 99999; S.player.maxHp = 99999; },
       wave: n => { S.enemies = []; S.toSpawn = 0; S.boss = null; S.intermission = 0; startWave(n); },
       give: w => { S.player.owned[w] = true; S.player.ammo[w] = WEAPONS[w].mag; S.player.reserve[w] = WEAPONS[w].maxReserve; },
+      spawn: (t, x, y, elite = false) => { const e = makeEnemy(t, x, y, elite); S.enemies.push(e); return e; },
       intermission: () => { S.enemies = []; S.toSpawn = 0; S.boss = null; S.intermission = 60; },
       nuke: () => {
         S.toSpawn = 0;

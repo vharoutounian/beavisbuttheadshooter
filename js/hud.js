@@ -1,6 +1,14 @@
+import { CONFIG, WEAPONS, SLOT_ORDER, RANKS } from './config.js';
+import { GameMap } from './map.js';
+import { Textures } from './textures.js';
+import { Characters } from './characters.js';
+import { Fx } from './fx.js';
+import { Game } from './game.js';           // runtime-only (circular is fine)
+import { Renderer } from './render3d.js';   // runtime-only (circular is fine)
+
 // 2D overlay on top of the 3D scene: viewmodel, HUD, shop, scope, and
 // world-anchored floating text (projected via Renderer.worldToScreen).
-const Hud = (() => {
+export const Hud = (() => {
   const canvas = document.getElementById('hud');
   const g = canvas.getContext('2d');
   const DW = 1280, DH = 720;

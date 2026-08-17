@@ -2,7 +2,7 @@
 // '#' brick  'L' lockers  'C' chalkboard  'M' gym metal  'P' poster wall
 // 'D' exit door  'T' cafeteria tile  '.' floor
 // 'S' enemy spawn point   '@' player start
-const GameMap = (() => {
+export const GameMap = (() => {
   const W = 36, H = 26;
 
   const LAYOUT = [
@@ -93,4 +93,3 @@ const GameMap = (() => {
 
   return { W, H, grid, spawns, playerStart, tileAt, solidAt, computeField, fieldAt };
 })();
-if (typeof module !== 'undefined') module.exports = GameMap;

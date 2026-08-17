@@ -1,5 +1,5 @@
 // All art is generated at runtime on offscreen canvases — no image files.
-const Textures = (() => {
+export const Textures = (() => {
   function mk(w, h) {
     const c = document.createElement('canvas');
     c.width = w; c.height = h;
