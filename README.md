@@ -36,11 +36,10 @@ Pick your dumbass, click **DEPLOY**, and click the screen to grab mouse lock.
 
 | Input | Action |
 | --- | --- |
-| Click ground | Move there (hold to keep moving with the cursor) |
-| Click enemy | Attack it (hold to keep attacking; re-targets under the cursor) |
-| `Shift` + click | Force attack in place |
-| `WASD` | `W` walks toward the cursor (your facing), `S` backs away, `A`/`D` strafe (click while steering = fire) |
-| Right mouse / `G` | Grenade at the cursor (farther cursor = longer throw) |
+| Left click | Shoot at the cursor — hold for continuous fire; locks onto the enemy under the cursor |
+| Right click | Walk there (pathfinds around furniture) — hold to steer with the cursor |
+| `WASD` | `W` walks toward the cursor (your facing), `S` backs away, `A`/`D` strafe |
+| `G` | Grenade at the cursor (farther cursor = longer throw) |
 | `Shift` | Sprint (while using WASD) |
 | `C` / `Ctrl` | **Dodge-slide** while sprinting |
 | `R` | Reload |
