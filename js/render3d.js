@@ -134,7 +134,7 @@ export const Renderer = (() => {
   }
 
   // ------------------------------------------------------------- lights
-  const hemi = new THREE.HemisphereLight(0x2a3b66, 0x1a140f, 0.66);
+  const hemi = new THREE.HemisphereLight(0x3a4a70, 0x241c12, 0.95);
   scene.add(hemi);
   // full moon, low over the skyline: cool key light, god rays, long shadows
   const sunDir = new THREE.Vector3(24, 14, -20);
@@ -315,9 +315,9 @@ export const Renderer = (() => {
     dustSeed[i * 2 + 1] = 0.2 + Math.random() * 0.5;
   }
   dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3).setUsage(THREE.DynamicDrawUsage));
-  // drifting embers in the night air
+  // dust motes drifting through the lamplight
   const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({
-    color: 0xff9a3c, size: 0.035, transparent: true, opacity: 0.75,
+    color: 0xffe2b0, size: 0.022, transparent: true, opacity: 0.45,
     blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true,
   }));
   dust.frustumCulled = false;
@@ -325,6 +325,7 @@ export const Renderer = (() => {
 
   // --------------------------------------------------------------- level
   const solidMeshes = [];    // hitscan targets (walls, floor, props)
+  const tvSets = [];         // flickering TV screens + their light
   {
     const byType = new Map();
     for (let y = 0; y < GameMap.H; y++)
@@ -342,8 +343,8 @@ export const Renderer = (() => {
       if (t >= 8) continue;                     // props handled below
       wallCells.push(...cells);
       const mat = surface(Textures.walls[t], {
-        rough: t === 2 ? 0.55 : 0.9,
-        metal: t === 2 || t === 4 ? 0.35 : 0,
+        rough: t === 2 ? 0.5 : (t === 3 || t === 4) ? 0.38 : 0.9,   // wood satin, tile gloss
+        metal: 0,
         nStrength: 1.6,
       });
       const inst = new THREE.InstancedMesh(box, mat, cells.length);
@@ -382,58 +383,100 @@ export const Renderer = (() => {
     bases.receiveShadow = true;
     scene.add(bases);
 
-    // ---- cover props
-    const woodCanvas = (() => {
-      const c = document.createElement('canvas');
-      c.width = c.height = 64;
-      const gg = c.getContext('2d');
-      gg.fillStyle = '#8a6435'; gg.fillRect(0, 0, 64, 64);
-      for (let i = 0; i < 4; i++) {
-        gg.fillStyle = i % 2 ? '#936d3c' : '#7d5a2e';
-        gg.fillRect(0, i * 16 + 1, 64, 14);
-        gg.fillStyle = 'rgba(0,0,0,0.25)';
-        gg.fillRect(0, i * 16, 64, 2);
-      }
-      gg.fillStyle = 'rgba(0,0,0,0.3)';
-      for (let i = 0; i < 10; i++) gg.fillRect((i * 23) % 64, (i * 17) % 64, 2, 5);
-      return c;
-    })();
-    const woodMat = surface(woodCanvas, { rough: 0.8, nStrength: 2 });
-    const bagMat = std({ color: 0x6b6f4a, roughness: 0.95 });
+    // ---- furniture props
+    const fabricMat = std({ color: 0x7d6a42, roughness: 0.96 });
+    const fabricDark = std({ color: 0x615232, roughness: 0.96 });
+    const woodMat = std({ color: 0x6b4a26, roughness: 0.6 });
+    const woodDark = std({ color: 0x3c2a14, roughness: 0.7 });
+    const formicaMat = std({ color: 0xcfc7ae, roughness: 0.35 });
+    const cabinetMat = std({ color: 0x8a7448, roughness: 0.7 });
+    const solidNear = (x, y) =>
+      GameMap.grid[y][x - 1] >= 1 && GameMap.grid[y][x - 1] <= 7 ||
+      GameMap.grid[y][x + 1] >= 1 && GameMap.grid[y][x + 1] <= 7 ||
+      GameMap.grid[y - 1][x] >= 1 && GameMap.grid[y - 1][x] <= 7 ||
+      GameMap.grid[y + 1][x] >= 1 && GameMap.grid[y + 1][x] <= 7;
     for (const [t, cells] of byType) {
       if (t === 8) {
-        // crate stacks
+        // the sacred couch (sections face west, toward the TV)
         for (const [x, y] of cells) {
           const gp = new THREE.Group();
-          const big = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.52, 0.78), woodMat);
-          big.position.y = 0.26;
-          const small = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.4, 0.52), woodMat);
-          small.position.set(0.1, 0.72, -0.08);
-          small.rotation.y = 0.4;
-          gp.add(big, small);
+          const base = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.3, 0.96), fabricDark);
+          base.position.set(0.06, 0.16, 0);
+          const cushion = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.13, 0.9), fabricMat);
+          cushion.position.set(0.02, 0.37, 0);
+          const back = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.55, 0.96), fabricDark);
+          back.position.set(0.33, 0.42, 0);
+          const backCushion = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.34, 0.88), fabricMat);
+          backCushion.position.set(0.26, 0.5, 0);
+          gp.add(base, cushion, back, backCushion);
+          for (const fz of [-0.4, 0.4]) {
+            const foot = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.08), woodDark);
+            foot.position.set(-0.2, 0.05, fz);
+            gp.add(foot);
+          }
           gp.position.set(x + 0.5, 0, y + 0.5);
-          gp.rotation.y = (x * 7 + y * 13) % 6 * 0.3;
           gp.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
           scene.add(gp);
           solidMeshes.push(gp);
         }
       } else if (t === 9) {
-        // sandbag barriers
+        // tables in the open, counters against walls
         for (const [x, y] of cells) {
           const gp = new THREE.Group();
-          for (let row = 0; row < 2; row++)
-            for (let i = 0; i < 3 - row; i++) {
-              const bag = new THREE.Mesh(
-                new THREE.BoxGeometry(0.34, 0.22, 0.55), bagMat);
-              bag.position.set(-0.3 + i * 0.32 + row * 0.16, 0.12 + row * 0.22, 0);
-              bag.rotation.y = ((x + y + i) % 3 - 1) * 0.12;
-              gp.add(bag);
+          if (solidNear(x, y)) {
+            const cab = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.6, 0.92), cabinetMat);
+            cab.position.y = 0.3;
+            const top = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.06, 1.0), formicaMat);
+            top.position.y = 0.63;
+            gp.add(cab, top);
+          } else {
+            const top = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.06, 0.9), woodMat);
+            top.position.y = 0.46;
+            gp.add(top);
+            for (const [lx, lz] of [[-0.38, -0.38], [0.38, -0.38], [-0.38, 0.38], [0.38, 0.38]]) {
+              const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.026, 0.44, 8), woodDark);
+              leg.position.set(lx, 0.22, lz);
+              gp.add(leg);
             }
+          }
           gp.position.set(x + 0.5, 0, y + 0.5);
-          gp.rotation.y = ((x * 5 + y * 3) % 4) * 0.75;
           gp.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
           scene.add(gp);
           solidMeshes.push(gp);
+        }
+      } else if (t === 10) {
+        // the TV, flickering away, screen toward the couch (east)
+        for (const [x, y] of cells) {
+          const gp = new THREE.Group();
+          const cab = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.42, 0.66), woodDark);
+          cab.position.y = 0.21;
+          const body = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.46, 0.58), woodMat);
+          body.position.y = 0.66;
+          const screenMat = new THREE.MeshBasicMaterial({ color: 0x8fb8d8 });
+          const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.32), screenMat);
+          screen.position.set(0.265, 0.68, 0);
+          screen.rotation.y = Math.PI / 2;
+          const dialMat = std({ color: 0x2a2a2e, roughness: 0.4 });
+          for (const dz of [-0.18, -0.07]) {
+            const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.02, 10), dialMat);
+            dial.rotation.z = Math.PI / 2;
+            dial.position.set(0.267, 0.52, dz);
+            gp.add(dial);
+          }
+          for (const side of [-1, 1]) {
+            const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.5, 6), dialMat);
+            ant.position.set(0, 1.1, side * 0.1);
+            ant.rotation.x = side * 0.5;
+            gp.add(ant);
+          }
+          const tvLight = new THREE.PointLight(0x9fc4e8, 1.6, 6, 1.8);
+          tvLight.position.set(0.7, 0.9, 0);
+          gp.add(cab, body, screen, tvLight);
+          gp.position.set(x + 0.5, 0, y + 0.5);
+          gp.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+          scene.add(gp);
+          solidMeshes.push(gp);
+          tvSets.push({ screenMat, light: tvLight, seed: x * 3.7 });
         }
       }
     }
@@ -478,33 +521,36 @@ export const Renderer = (() => {
     }
   }
 
-  // wall torches: warm flickering pools of light around the night arena
+  // wall lamps: warm shaded pools of living-room light
   const torches = [];
   {
     const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-    const stickGeo = new THREE.CylinderGeometry(0.022, 0.03, 0.5, 8);
-    const stickMat = std({ color: 0x3a2a18, roughness: 0.9 });
-    const cupGeo = new THREE.CylinderGeometry(0.055, 0.028, 0.09, 10);
-    const cupMat = std({ color: 0x2b2b30, roughness: 0.5, metalness: 0.7 });
+    const bracketGeo = new THREE.BoxGeometry(0.05, 0.16, 0.05);
+    const bracketMat = std({ color: 0x3a2c1a, roughness: 0.8 });
+    const shadeGeo = new THREE.CylinderGeometry(0.07, 0.11, 0.13, 12, 1, true);
+    const shadeMat = std({
+      color: 0xe8d4a8, roughness: 0.9, side: THREE.DoubleSide,
+      emissive: 0xffd490, emissiveIntensity: 0.55,
+    });
     let count = 0;
-    for (let y = 1; y < GameMap.H - 1 && count < 14; y++)
-      for (let x = 1; x < GameMap.W - 1 && count < 14; x++) {
+    for (let y = 1; y < GameMap.H - 1 && count < 20; y++)
+      for (let x = 1; x < GameMap.W - 1 && count < 20; x++) {
         if (GameMap.grid[y][x] <= 0 || GameMap.grid[y][x] >= 8) continue;
-        if ((x * 7 + y * 5) % 17 !== 0) continue;
+        if ((x * 7 + y * 5) % 11 !== 0) continue;
         const open = dirs.find(([ox, oy]) => GameMap.grid[y + oy][x + ox] === 0);
         if (!open) continue;
-        const tx = x + 0.5 + open[0] * 0.56, tz = y + 0.5 + open[1] * 0.56;
+        const tx = x + 0.5 + open[0] * 0.55, tz = y + 0.5 + open[1] * 0.55;
         const gp = new THREE.Group();
-        const stick = new THREE.Mesh(stickGeo, stickMat);
-        stick.rotation.set(open[1] * 0.5, 0, -open[0] * 0.5);
-        const cup = new THREE.Mesh(cupGeo, cupMat);
-        cup.position.set(open[0] * 0.13, 0.24, open[1] * 0.13);
-        const flame = glowSprite(0.6, 'rgba(255,205,110,1)', 'rgba(255,110,20,0)');
-        flame.position.set(open[0] * 0.13, 0.36, open[1] * 0.13);
-        const light = new THREE.PointLight(0xff8c3a, 2.4, 7.5, 1.8);
-        light.position.copy(flame.position).y += 0.1;
-        gp.add(stick, cup, flame, light);
-        gp.position.set(tx, 1.62, tz);
+        const bracket = new THREE.Mesh(bracketGeo, bracketMat);
+        bracket.position.set(-open[0] * 0.04, 0, -open[1] * 0.04);
+        const shade = new THREE.Mesh(shadeGeo, shadeMat);
+        shade.position.set(open[0] * 0.1, 0.08, open[1] * 0.1);
+        const flame = glowSprite(0.46, 'rgba(255,222,150,0.9)', 'rgba(255,160,60,0)');
+        flame.position.set(open[0] * 0.1, 0.05, open[1] * 0.1);
+        const light = new THREE.PointLight(0xffbe78, 2.6, 9, 1.7);
+        light.position.copy(flame.position).y += 0.06;
+        gp.add(bracket, shade, flame, light);
+        gp.position.set(tx, 1.72, tz);
         scene.add(gp);
         torches.push({ flame, light, seed: count * 2.13 });
         count++;
@@ -513,57 +559,62 @@ export const Renderer = (() => {
 
   let floor = null;
   {
-    // worn terrazzo-style school tiles: color variance, grout, scuffs, cracks
-    const R = 256, T = R / 2;                        // 2x2 tiles per canvas
+    // scuffed hardwood floorboards with a satin sheen
+    const R = 256, PLANK = 32;                       // 8 plank rows per canvas
     const c = document.createElement('canvas');
     c.width = c.height = R;
     const fg = c.getContext('2d');
     const rough = document.createElement('canvas');  // per-texel roughness
     rough.width = rough.height = R;
     const rg = rough.getContext('2d');
-    rg.fillStyle = '#9a9a9a'; rg.fillRect(0, 0, R, R);
-    const rand = (() => { let s = 7; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
-    for (let ty = 0; ty < 2; ty++)
-      for (let tx = 0; tx < 2; tx++) {
-        const warm = (tx + ty) % 2;
-        fg.fillStyle = warm ? '#b3a17e' : '#a89673';
-        fg.fillRect(tx * T, ty * T, T, T);
-        // terrazzo speckle
-        for (let i = 0; i < 220; i++) {
-          const sx = tx * T + rand() * T, sy = ty * T + rand() * T;
-          const v = rand();
-          fg.fillStyle = v < 0.4 ? 'rgba(255,250,235,0.16)'
-            : v < 0.7 ? 'rgba(90,70,45,0.14)' : 'rgba(140,120,90,0.18)';
-          fg.fillRect(sx, sy, 1 + rand() * 2, 1 + rand() * 2);
+    rg.fillStyle = '#8a8a8a'; rg.fillRect(0, 0, R, R);
+    const rand = (() => { let s = 11; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+    const tones = ['#8a6234', '#93693a', '#7d5a2e', '#86603a', '#755227'];
+    for (let row = 0; row < R / PLANK; row++) {
+      const y = row * PLANK;
+      // staggered plank ends within the row
+      let x = -((row * 73) % 96);
+      while (x < R) {
+        const len = 72 + ((rand() * 88) | 0);
+        fg.fillStyle = tones[(rand() * tones.length) | 0];
+        fg.fillRect(x, y + 1.5, len - 2, PLANK - 3);
+        // grain streaks
+        fg.strokeStyle = 'rgba(60,38,14,0.28)'; fg.lineWidth = 1;
+        for (let s = 0; s < 4; s++) {
+          const gy = y + 5 + rand() * (PLANK - 10);
+          fg.beginPath();
+          fg.moveTo(Math.max(0, x + 2), gy);
+          fg.lineTo(Math.min(R, x + len - 4), gy + (rand() - 0.5) * 3);
+          fg.stroke();
         }
-        // polished sheen streak: darker roughness = shinier
-        const shx = tx * T + T * (0.2 + rand() * 0.5);
-        const rgrad = rg.createLinearGradient(shx - 26, 0, shx + 26, 0);
-        rgrad.addColorStop(0, 'rgba(0,0,0,0)');
-        rgrad.addColorStop(0.5, 'rgba(60,60,60,0.55)');
-        rgrad.addColorStop(1, 'rgba(0,0,0,0)');
-        rg.fillStyle = rgrad; rg.fillRect(tx * T, ty * T, T, T);
+        // plank end seam
+        fg.fillStyle = 'rgba(20,12,6,0.55)';
+        fg.fillRect(x + len - 2, y, 2, PLANK);
+        x += len;
       }
-    // grout lines
-    fg.fillStyle = 'rgba(40,30,20,0.4)';
-    fg.fillRect(0, 0, R, 3); fg.fillRect(0, T, R, 3);
-    fg.fillRect(0, 0, 3, R); fg.fillRect(T, 0, 3, R);
-    rg.fillStyle = 'rgba(230,230,230,0.9)';
-    rg.fillRect(0, 0, R, 3); rg.fillRect(0, T, R, 3);
-    rg.fillRect(0, 0, 3, R); rg.fillRect(T, 0, 3, R);
-    // scuffs + hairline cracks
-    fg.strokeStyle = 'rgba(30,22,14,0.2)'; fg.lineWidth = 1.5;
-    for (let i = 0; i < 8; i++) {
+      // row gap
+      fg.fillStyle = 'rgba(20,12,6,0.6)';
+      fg.fillRect(0, y, R, 2);
+      rg.fillStyle = 'rgba(220,220,220,0.9)';
+      rg.fillRect(0, y, R, 2);
+      // satin sheen band along each plank's center
+      const sheen = rg.createLinearGradient(0, y + 4, 0, y + PLANK - 4);
+      sheen.addColorStop(0, 'rgba(0,0,0,0)');
+      sheen.addColorStop(0.5, 'rgba(70,70,70,0.5)');
+      sheen.addColorStop(1, 'rgba(0,0,0,0)');
+      rg.fillStyle = sheen; rg.fillRect(0, y, R, PLANK);
+    }
+    // scuffs and drink rings
+    fg.strokeStyle = 'rgba(30,20,10,0.22)'; fg.lineWidth = 1.4;
+    for (let i = 0; i < 7; i++) {
       fg.beginPath();
-      let x = rand() * R, y = rand() * R;
-      fg.moveTo(x, y);
-      for (let s = 0; s < 4; s++) { x += (rand() - 0.5) * 40; y += (rand() - 0.5) * 40; fg.lineTo(x, y); }
+      fg.arc(rand() * R, rand() * R, 4 + rand() * 5, 0, 7);
       fg.stroke();
     }
     const roughTex = new THREE.CanvasTexture(rough);
     roughTex.wrapS = roughTex.wrapT = THREE.RepeatWrapping;
-    roughTex.repeat.set(GameMap.W / 2, GameMap.H / 2);
-    const floorMat = surface(c, { rough: 1, nStrength: 1.1, repeatX: GameMap.W / 2, repeatY: GameMap.H / 2 });
+    roughTex.repeat.set(GameMap.W / 3, GameMap.H / 3);
+    const floorMat = surface(c, { rough: 1, nStrength: 1.2, repeatX: GameMap.W / 3, repeatY: GameMap.H / 3 });
     floorMat.roughnessMap = roughTex;
     floor = new THREE.Mesh(new THREE.PlaneGeometry(GameMap.W, GameMap.H), floorMat);
     floor.rotation.x = -Math.PI / 2;
@@ -571,6 +622,49 @@ export const Renderer = (() => {
     floor.receiveShadow = true;
     scene.add(floor);
     solidMeshes.push(floor);
+
+    // dark lawn outside the house shell
+    const lawn = new THREE.Mesh(
+      new THREE.PlaneGeometry(150, 150),
+      std({ color: 0x18211a, roughness: 1 })
+    );
+    lawn.rotation.x = -Math.PI / 2;
+    lawn.position.set(GameMap.W / 2, -0.02, GameMap.H / 2);
+    lawn.receiveShadow = true;
+    scene.add(lawn);
+
+    // braided living-room rug between the couch and the TV
+    const rc = document.createElement('canvas');
+    rc.width = 128; rc.height = 96;
+    const rgc = rc.getContext('2d');
+    const bands = ['#6a2a26', '#3a4258', '#8a6a30', '#55302c', '#2e3a30'];
+    for (let i = 0; i < 10; i++) {
+      rgc.fillStyle = bands[i % bands.length];
+      rgc.beginPath();
+      rgc.ellipse(64, 48, 62 - i * 6, 46 - i * 4.4, 0, 0, 7);
+      rgc.fill();
+    }
+    const rugTex = new THREE.CanvasTexture(rc);
+    rugTex.colorSpace = THREE.SRGBColorSpace;
+    const rug = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.8, 2.9),
+      std({ map: rugTex, roughness: 0.95, transparent: true, alphaTest: 0.1 })
+    );
+    // punch the ellipse out of the plane via canvas alpha
+    {
+      const alpha = rgc.getImageData(0, 0, 128, 96);
+      for (let i = 0; i < alpha.data.length; i += 4) {
+        const px = (i / 4) % 128, py = ((i / 4) / 128) | 0;
+        const nx = (px - 64) / 62, ny = (py - 48) / 46;
+        if (nx * nx + ny * ny > 1) alpha.data[i + 3] = 0;
+      }
+      rgc.putImageData(alpha, 0, 0);
+      rugTex.needsUpdate = true;
+    }
+    rug.rotation.x = -Math.PI / 2;
+    rug.position.set(4.6, 0.015, 16.0);
+    rug.receiveShadow = true;
+    scene.add(rug);
   }
 
   // ------------------------------------------------------------ goons 3D
@@ -1665,12 +1759,19 @@ export const Renderer = (() => {
       }
     }
 
-    // torch flicker
+    // lamp hum + TV static flicker
     for (const tc of torches) {
       const t = (S.time || 0) + tc.seed;
-      tc.light.intensity = 2.15 + Math.sin(t * 7.3) * 0.3 + Math.sin(t * 13.7) * 0.18;
-      const fs = 0.52 + Math.sin(t * 9.1) * 0.07;
-      tc.flame.scale.set(fs, fs * 1.25, 1);
+      tc.light.intensity = 2.5 + Math.sin(t * 5.1) * 0.1 + Math.sin(t * 11.3) * 0.06;
+      const fs = 0.46 + Math.sin(t * 6.2) * 0.03;
+      tc.flame.scale.set(fs, fs, 1);
+    }
+    for (const tv of tvSets) {
+      const t = (S.time || 0) + tv.seed;
+      const n = Math.sin(t * 31.7) * Math.sin(t * 17.3) * 0.5 + Math.sin(t * 53.1) * 0.3;
+      const b = 0.62 + n * 0.3;
+      tv.screenMat.color.setRGB(b * 0.62, b * 0.78, b);
+      tv.light.intensity = 1.2 + n * 0.9;
     }
 
     for (const c of clouds) {
