@@ -231,90 +231,139 @@ export const Hud = (() => {
     }
   }
 
+  const SLOT_SHORT = { pistol: 'BB-9', smg: 'SCORCH', rifle: 'AK', shotgun: 'BOOM', sniper: '.50' };
+
+  // ARPG glass orb: dark vessel, liquid fill, specular glint
+  function orb(x, y, r, frac, colTop, colBot, rim) {
+    g.save();
+    g.beginPath(); g.arc(x, y, r, 0, TAU); g.clip();
+    g.fillStyle = 'rgba(8,10,16,0.88)';
+    g.fillRect(x - r, y - r, r * 2, r * 2);
+    const level = y + r - frac * r * 2;
+    const lg = g.createLinearGradient(0, level, 0, y + r);
+    lg.addColorStop(0, colTop); lg.addColorStop(1, colBot);
+    g.fillStyle = lg;
+    g.fillRect(x - r, level, r * 2, r * 2 * frac + 2);
+    // liquid surface shimmer
+    g.fillStyle = 'rgba(255,255,255,0.22)';
+    g.fillRect(x - r, level, r * 2, 2.5);
+    // glass highlight
+    const hg = g.createRadialGradient(x - r * 0.35, y - r * 0.45, 2, x - r * 0.35, y - r * 0.45, r * 0.9);
+    hg.addColorStop(0, 'rgba(255,255,255,0.28)');
+    hg.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = hg;
+    g.fillRect(x - r, y - r, r * 2, r * 2);
+    g.restore();
+    g.lineWidth = 3.5;
+    g.strokeStyle = rim;
+    g.beginPath(); g.arc(x, y, r, 0, TAU); g.stroke();
+    g.lineWidth = 1.5;
+    g.strokeStyle = 'rgba(0,0,0,0.7)';
+    g.beginPath(); g.arc(x, y, r - 2.6, 0, TAU); g.stroke();
+  }
+
+  function cursorDesignPos() {
+    const S = Game.S;
+    const winW = window.innerWidth || DW, winH = window.innerHeight || DH;
+    const fitW = Math.min(winW, winH * 16 / 9), fitH = fitW * 9 / 16;
+    return {
+      x: (S.cursor.sx - (winW - fitW) / 2) / fitW * DW,
+      y: (S.cursor.sy - (winH - fitH) / 2) / fitH * DH,
+    };
+  }
+
   function drawHud(dt) {
     const S = Game.S, p = S.player;
     const sp = WEAPONS[p.weapon];
     const cx = DW / 2, cy = DH / 2;
-    const scoped = sp.scope && p.adsT > 0.92;
+    const scoped = false;
 
-    if (!scoped && p.adsT < 0.9 && !p.sprinting && p.slideT <= 0 && !S.shopOpen) {
-      const spreadPx = 8 + (sp.spread + (sp.adsSpread - sp.spread) * p.adsT) * 620;
-      g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = 2;
-      g.beginPath();
-      g.moveTo(cx - spreadPx - 7, cy); g.lineTo(cx - spreadPx, cy);
-      g.moveTo(cx + spreadPx, cy); g.lineTo(cx + spreadPx + 7, cy);
-      g.moveTo(cx, cy - spreadPx - 7); g.lineTo(cx, cy - spreadPx);
-      g.moveTo(cx, cy + spreadPx); g.lineTo(cx, cy + spreadPx + 7);
-      g.stroke();
-      g.fillStyle = 'rgba(255,255,255,0.9)';
-      g.fillRect(cx - 1, cy - 1, 2, 2);
-    }
-    if (!scoped && p.adsT >= 0.9 && !sp.scope) {
-      g.fillStyle = 'rgba(255,90,90,0.95)';
-      g.fillRect(cx - 1.5, cy - 1.5, 3, 3);
-    }
-    if (S.hitmarker > 0) {
-      const col = S.hitmarkerKind === 'kill' ? 'rgba(255,60,60,0.95)'
-        : S.hitmarkerKind === 'head' ? 'rgba(255,200,60,0.95)' : 'rgba(255,255,255,0.9)';
-      g.strokeStyle = col; g.lineWidth = 3;
-      const o = 7, l = 11;
-      g.beginPath();
-      for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-        g.moveTo(cx + sx * o, cy + sy * o);
-        g.lineTo(cx + sx * (o + l), cy + sy * (o + l));
+    // cursor reticle (the mouse is the aim)
+    if (!S.shopOpen && S.cursor.seen) {
+      const c = cursorDesignPos();
+      const spreadPx = 7 + sp.spread * 260;
+      g.strokeStyle = 'rgba(255,235,190,0.9)'; g.lineWidth = 2;
+      g.beginPath(); g.arc(c.x, c.y, spreadPx, 0, TAU); g.stroke();
+      g.fillStyle = 'rgba(255,235,190,0.95)';
+      g.fillRect(c.x - 1.5, c.y - 1.5, 3, 3);
+      if (S.hitmarker > 0) {
+        const col = S.hitmarkerKind === 'kill' ? 'rgba(255,60,60,0.95)'
+          : S.hitmarkerKind === 'head' ? 'rgba(255,200,60,0.95)' : 'rgba(255,255,255,0.9)';
+        g.strokeStyle = col; g.lineWidth = 3;
+        const o = spreadPx + 3, l = 9;
+        g.beginPath();
+        for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+          g.moveTo(c.x + sx * o, c.y + sy * o);
+          g.lineTo(c.x + sx * (o + l), c.y + sy * (o + l));
+        }
+        g.stroke();
       }
-      g.stroke();
     }
 
-    // bottom-left: portrait + health/armor
-    const hx = 24, hy = DH - 96;
-    panel(hx, hy, 292, 74, 12);
+    // ---- bottom-left: HEALTH ORB + portrait
+    const orbR = 54, oy = DH - 74;
     const hurt = S.time - p.lastHurt < 0.8 || p.hp < 30;
+    orb(84, oy, orbR, Math.max(0, p.hp / p.maxHp),
+      p.hp / p.maxHp > 0.35 ? '#c62b2b' : '#e34040', '#5e0a0a',
+      hurt ? 'rgba(240,90,70,0.95)' : 'rgba(140,110,70,0.9)');
+    label(`${Math.ceil(Math.max(0, p.hp))}`, 84, oy + 6, 21, '#fff', 'center', 800);
+    // portrait medallion above the orb
     g.save();
-    g.beginPath(); g.arc(hx + 38, hy + 37, 28, 0, TAU); g.clip();
-    g.fillStyle = '#1c2028'; g.fillRect(hx + 10, hy + 9, 56, 56);
+    g.beginPath(); g.arc(84, oy - orbR - 26, 22, 0, TAU); g.clip();
+    g.fillStyle = '#1c2028'; g.fillRect(62, oy - orbR - 48, 44, 44);
     g.imageSmoothingEnabled = true;
-    g.drawImage(hurt ? portraitHurt : portraitOk, hx + 10, hy + 9, 56, 56);
+    g.drawImage(hurt ? portraitHurt : portraitOk, 62, oy - orbR - 48, 44, 44);
     g.restore();
-    g.strokeStyle = hurt ? 'rgba(230,70,70,0.9)' : 'rgba(255,255,255,0.3)';
-    g.lineWidth = 2;
-    g.beginPath(); g.arc(hx + 38, hy + 37, 28, 0, TAU); g.stroke();
-    if (p.armor > 0)
-      bar(hx + 78, hy + 16, 170, 8, p.armor / CONFIG.MAX_ARMOR, '#5b8fd4');
-    bar(hx + 78, hy + 30, 170, 12, p.hp / p.maxHp,
-      p.hp / p.maxHp > 0.35 ? '#63c74d' : '#d43a3a');
-    label(`${Math.ceil(Math.max(0, p.hp))}`, hx + 258, hy + 41, 18, '#fff', 'left', 800);
-    label(Game.rankFor(S.xp), hx + 78, hy + 58, 12.5, '#f6c945', 'left', 700);
+    g.strokeStyle = hurt ? 'rgba(230,70,70,0.9)' : 'rgba(140,110,70,0.85)';
+    g.lineWidth = 2.5;
+    g.beginPath(); g.arc(84, oy - orbR - 26, 22, 0, TAU); g.stroke();
+
+    // ---- bottom-right: ARMOR ORB
+    orb(DW - 84, oy, orbR, Math.max(0, p.armor / CONFIG.MAX_ARMOR),
+      '#3e78c8', '#0d2148', 'rgba(140,110,70,0.9)');
+    label(p.armor > 0 ? `${Math.ceil(p.armor)}` : '—', DW - 84, oy + 6, 21,
+      p.armor > 0 ? '#cfe2ff' : 'rgba(255,255,255,0.35)', 'center', 800);
+
+    // ---- center-bottom: skill bar (weapons, grenade, ammo, XP)
+    const barW = 470, bx0 = cx - barW / 2, by0 = DH - 78;
+    panel(bx0, by0, barW, 62, 10);
+    // XP strip along the top edge of the bar
     const nr = Game.nextRank(S.xp);
     if (nr) {
       const prev = RANKS.filter(r => r[0] <= S.xp).pop();
-      bar(hx + 78, hy + 63, 204, 4, (S.xp - prev[0]) / (nr[0] - prev[0]), '#f6c945');
+      bar(bx0 + 10, by0 - 7, barW - 20, 4, (S.xp - prev[0]) / (nr[0] - prev[0]), '#f6c945');
     }
-
-    // bottom-right: weapon
-    const ax = DW - 24, ay = DH - 96;
-    panel(ax - 292, ay, 292, 74, 12);
-    label(sp.name, ax - 14, ay + 24, 15, '#fff', 'right', 800);
-    const ammoStr = p.reloading > 0 ? 'RELOADING' : `${p.ammo[p.weapon]}`;
-    label(ammoStr, ax - 66, ay + 58, p.reloading > 0 ? 18 : 30,
-      p.ammo[p.weapon] === 0 && p.reloading <= 0 ? '#d43a3a' : '#fff', 'right', 800);
-    if (p.reloading <= 0)
-      label(`/ ${p.reserve[p.weapon]}`, ax - 14, ay + 58, 15, 'rgba(255,255,255,0.6)', 'right', 700);
-    let px2 = ax - 284;
+    label(Game.rankFor(S.xp), cx, by0 - 12, 11.5, '#f6c945', 'center', 700);
+    let sx0 = bx0 + 12;
     for (const wn of SLOT_ORDER) {
       const owned = p.owned[wn];
       const cur = p.weapon === wn;
-      g.fillStyle = cur ? '#f6c945' : owned ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.15)';
-      g.beginPath(); g.roundRect(px2, ay + 10, 18, 14, 3); g.fill();
-      label(`${WEAPONS[wn].slot}`, px2 + 9, ay + 21, 10, '#000', 'center', 800);
-      px2 += 23;
+      g.fillStyle = cur ? 'rgba(246,201,69,0.24)' : 'rgba(255,255,255,0.05)';
+      g.strokeStyle = cur ? '#f6c945' : owned ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.12)';
+      g.lineWidth = 2;
+      g.beginPath(); g.roundRect(sx0, by0 + 10, 42, 42, 6); g.fill(); g.stroke();
+      label(`${WEAPONS[wn].slot}`, sx0 + 6, by0 + 22, 10,
+        owned ? '#f6c945' : 'rgba(255,255,255,0.25)', 'left', 800);
+      label(SLOT_SHORT[wn], sx0 + 21, by0 + 40, 9.5,
+        owned ? (cur ? '#fff' : 'rgba(255,255,255,0.7)') : 'rgba(255,255,255,0.2)', 'center', 700);
+      sx0 += 48;
     }
-    for (let i = 0; i < p.grenades; i++) {
-      g.fillStyle = '#9fd06a';
-      g.beginPath(); g.arc(ax - 278 + i * 14, ay + 42, 4.5, 0, TAU); g.fill();
-    }
+    // grenade slot
+    g.fillStyle = 'rgba(255,255,255,0.05)';
+    g.strokeStyle = p.grenades > 0 ? 'rgba(159,208,106,0.7)' : 'rgba(255,255,255,0.12)';
+    g.lineWidth = 2;
+    g.beginPath(); g.roundRect(sx0, by0 + 10, 42, 42, 6); g.fill(); g.stroke();
+    g.fillStyle = p.grenades > 0 ? '#9fd06a' : 'rgba(255,255,255,0.2)';
+    g.beginPath(); g.arc(sx0 + 21, by0 + 27, 7, 0, TAU); g.fill();
+    label(`×${p.grenades}`, sx0 + 21, by0 + 47, 10, 'rgba(255,255,255,0.8)', 'center', 800);
+    sx0 += 52;
+    // ammo readout
+    const ammoStr = p.reloading > 0 ? 'REL' : `${p.ammo[p.weapon]}`;
+    label(ammoStr, sx0 + 52, by0 + 34, p.reloading > 0 ? 15 : 24,
+      p.ammo[p.weapon] === 0 && p.reloading <= 0 ? '#d43a3a' : '#fff', 'center', 800);
+    label(`/ ${p.reserve[p.weapon]}`, sx0 + 52, by0 + 50, 11, 'rgba(255,255,255,0.55)', 'center', 700);
     if (p.reloading > 0)
-      bar(ax - 284, ay + 66, 270, 4, 1 - p.reloading / (p.reloadTotal || sp.reload), '#f6c945');
+      bar(bx0 + 10, by0 + 56, barW - 20, 3, 1 - p.reloading / (p.reloadTotal || sp.reload), '#f6c945');
 
     // top-left: cash / score / wave
     panel(24, 20, 210, 92, 12);
@@ -341,8 +390,7 @@ export const Hud = (() => {
     if (p.dmgBoost > 0)
       label(`DOUBLE DAMAGE ${Math.ceil(p.dmgBoost)}s`, 34, 152, 12, '#ffd0d0', 'left', 800);
 
-    drawCompass();
-    if (!scoped) drawMinimap();
+    drawMinimap();
 
     // kill feed
     let fy = 190;
@@ -389,9 +437,9 @@ export const Hud = (() => {
       label('TAB — SHOP', cx, 146, 13, 'rgba(255,255,255,0.7)', 'center', 700);
     }
 
-    // damage direction arcs (rel = 0 → top of the ring)
+    // damage direction arcs (screen-up is world angle -3π/4 under the iso cam)
     for (const arc of S.hurtArcs) {
-      const rel = arc.angle - p.a;
+      const rel = arc.angle + 3 * Math.PI / 4;
       g.save();
       g.translate(cx, cy);
       g.rotate(rel - Math.PI / 2);
@@ -466,7 +514,6 @@ export const Hud = (() => {
     g.clearRect(0, 0, W, H);
     if (S.mode === 'menu' || !S.player) return;
 
-    renderViewmodel(dt);
     g.save();
     g.scale(uiScale, uiScale);
     drawHud(dt);

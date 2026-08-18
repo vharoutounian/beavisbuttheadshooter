@@ -61,6 +61,8 @@ export const Game = (() => {
     boss: null,
     attract: { a: 0, x: 0, y: 0 },   // menu camera
     killTimes: [],
+    cursor: { sx: 0, sy: 0, seen: false },   // raw screen px
+    aim: { x: 0, y: 0 },                     // cursor on the ground plane
   };
 
   function freshPlayer(character) {
@@ -89,12 +91,9 @@ export const Game = (() => {
   const keys = {};
   let mouseDown = false, mouseRight = false, wantFire = false;
 
-  function lockPointer() {
-    try {
-      const p = canvas.requestPointerLock();
-      if (p && p.catch) p.catch(() => {});
-    } catch (e) { /* pointer lock unavailable; game still runs */ }
-  }
+  // ARPG cursor aim: no pointer lock. The mouse stays visible; every frame
+  // the cursor is projected onto the ground plane and the hero faces it.
+  function lockPointer() { /* retired — cursor-aimed now */ }
 
   document.addEventListener('keydown', e => {
     if (S.mode === 'menu') return;
@@ -125,13 +124,9 @@ export const Game = (() => {
   });
 
   canvas.addEventListener('mousedown', e => {
-    if (S.shopOpen) return;
-    if (S.mode === 'playing' && document.pointerLockElement !== canvas) {
-      lockPointer();
-      return;
-    }
+    if (S.shopOpen || S.mode !== 'playing') return;
     if (e.button === 0) { mouseDown = true; wantFire = true; }
-    if (e.button === 2) mouseRight = true;
+    if (e.button === 2) { mouseRight = true; throwGrenade(); }
   });
   document.addEventListener('mouseup', e => {
     if (e.button === 0) mouseDown = false;
@@ -139,12 +134,9 @@ export const Game = (() => {
   });
   canvas.addEventListener('contextmenu', e => e.preventDefault());
   document.addEventListener('mousemove', e => {
-    if (S.mode !== 'playing' || document.pointerLockElement !== canvas || S.shopOpen) return;
-    const p = S.player;
-    const zoomFactor = p.adsT > 0.5 ? (WEAPONS[p.weapon].scope ? 0.25 : 0.6) : 1;
-    const sens = 0.0022 * settings.sens * zoomFactor;
-    p.a = (p.a + e.movementX * sens) % TAU;
-    p.pitch = Math.max(-170, Math.min(170, p.pitch - e.movementY * 0.4 * zoomFactor * settings.sens));
+    S.cursor.sx = e.clientX;
+    S.cursor.sy = e.clientY;
+    S.cursor.seen = true;
   });
   canvas.addEventListener('wheel', e => {
     if (S.mode !== 'playing' || S.shopOpen) return;
@@ -156,9 +148,6 @@ export const Game = (() => {
     trySwitch(ownedSlots[n]);
   }, { passive: false });
 
-  document.addEventListener('pointerlockchange', () => {
-    if (document.pointerLockElement !== canvas && S.mode === 'playing') pause();
-  });
 
   // ------------------------------------------------------------ helpers
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -288,13 +277,13 @@ export const Game = (() => {
   }
 
   function muzzleWorld() {
-    // slightly to the player's right, matching the on-screen gun
+    // the hero's gun hand: forward and slightly right of the rig
     const p = S.player;
     const ca = Math.cos(p.a), sa = Math.sin(p.a);
     return {
-      x: p.x + ca * 0.45 - sa * 0.12,
-      y: p.y + sa * 0.45 + ca * 0.12,
-      z: p.eye * CONFIG.EYE_SCALE - 0.1,
+      x: p.x + ca * 0.42 - sa * 0.14,
+      y: p.y + sa * 0.42 + ca * 0.14,
+      z: 1.16,
     };
   }
 
@@ -320,43 +309,60 @@ export const Game = (() => {
     if (sp.slot !== 5) Fx.shell(W * 0.6, H * 0.66);
     if (sp.scope) setTimeout(() => { if (S.mode === 'playing') Sound.play('bolt'); }, 260);
 
-    // true 3D hitscan through the camera (Renderer raycasts scene geometry)
+    // top-down hitscan: 2D grid ray per pellet; crits replace headshots
     const mz = muzzleWorld();
     const spread = currentSpread();
-    let hitAny = false, killedAny = false, headAny = false;
+    let hitAny = false, killedAny = false, critAny = false;
 
     for (let i = 0; i < sp.pellets; i++) {
-      const yawOff = (Math.random() - 0.5) * 2 * spread;
-      const pitchOff = (Math.random() - 0.5) * 2 * spread;
-      const hit = Renderer.hitscan(yawOff, pitchOff);
-      if (!hit) continue;
-      if (hit.enemy) {
+      const ang = p.a + (Math.random() - 0.5) * 2 * spread * 1.6;
+      const dx = Math.cos(ang), dy = Math.sin(ang);
+      const wall = castRay(p.x, p.y, dx, dy);
+      const wallDist = wall.dist, wallSide = wall.side;
+
+      // nearest live enemy the ray passes through before the wall
+      let best = null, bestT = wallDist;
+      for (const e of S.enemies) {
+        if (e.dead) continue;
+        const ex = e.x - p.x, ey = e.y - p.y;
+        const t = ex * dx + ey * dy;
+        if (t < 0.1 || t > bestT) continue;
+        const perp = Math.abs(ex * -dy + ey * dx);
+        if (perp < 0.36 * e.type.scale) { best = e; bestT = t; }
+      }
+
+      if (best) {
         hitAny = true;
         let dmg = sp.dmg;
-        if (hit.dist > sp.falloffStart) {
-          dmg *= clamp(1 - (hit.dist - sp.falloffStart) / (sp.falloffEnd - sp.falloffStart),
+        if (bestT > sp.falloffStart) {
+          dmg *= clamp(1 - (bestT - sp.falloffStart) / (sp.falloffEnd - sp.falloffStart),
             sp.minDmgMult, 1);
         }
-        if (hit.head) { dmg *= sp.headshot; headAny = true; }
+        const crit = Math.random() < 0.18;
+        if (crit) { dmg *= sp.headshot; critAny = true; }
         if (p.dmgBoost > 0) dmg *= 2;
-        const killed = damageEnemy(hit.enemy, dmg, hit.dist, { head: hit.head });
+        const killed = damageEnemy(best, dmg, bestT, { head: crit });
         if (killed) killedAny = true;
         if (sp.tracer)
-          Fx.tracer(mz.x, mz.y, hit.point.x, hit.point.z, mz.z, hit.point.y);
+          Fx.tracer(mz.x, mz.y, p.x + dx * bestT, p.y + dy * bestT,
+            mz.z, 1.05 * best.type.scale);
       } else {
-        // wall / floor impact
-        Renderer.addDecal(hit.point, hit.normal);
-        Fx.burst(hit.point.x, hit.point.z,
-          { count: 3, color: '#c9b79a', speed: 0.6, life: 0.25, z: hit.point.y / CONFIG.WALL_H });
-        if (sp.tracer)
-          Fx.tracer(mz.x, mz.y, hit.point.x, hit.point.z, mz.z, hit.point.y);
-        if (Math.random() < 0.2) Sound.at('ricochet', hit.point.x, hit.point.z);
+        // wall impact: decal + dust at a believable torso height
+        const hx = p.x + dx * wallDist, hy = p.y + dy * wallDist;
+        const hz = 0.8 + Math.random() * 0.6;
+        const nx = wallSide === 0 ? -Math.sign(dx) : 0;
+        const nz = wallSide === 1 ? -Math.sign(dy) : 0;
+        Renderer.addDecal(hx, hz, hy, nx, 0, nz);
+        Fx.burst(hx, hy,
+          { count: 3, color: '#c9b79a', speed: 0.6, life: 0.25, z: hz / CONFIG.WALL_H });
+        if (sp.tracer) Fx.tracer(mz.x, mz.y, hx, hy, mz.z, hz);
+        if (Math.random() < 0.2) Sound.at('ricochet', hx, hy);
       }
     }
     if (hitAny) {
       S.hitmarker = 0.14;
-      S.hitmarkerKind = killedAny ? 'kill' : headAny ? 'head' : 'hit';
-      Sound.play(killedAny ? 'killConfirm' : headAny ? 'headshotMark' : 'hitmark');
+      S.hitmarkerKind = killedAny ? 'kill' : critAny ? 'head' : 'hit';
+      Sound.play(killedAny ? 'killConfirm' : critAny ? 'headshotMark' : 'hitmark');
     }
     if (p.ammo[p.weapon] === 0) startReload();
   }
@@ -367,7 +373,9 @@ export const Game = (() => {
     p.grenades--;
     Sound.play('pin');
     const a = p.a;
-    const pitchBoost = clamp(p.pitch / 170, -0.4, 0.6);    // look up = throw farther
+    // throw strength scales with how far the cursor is from the hero
+    const aimDist = Math.hypot(S.aim.x - p.x, S.aim.y - p.y);
+    const pitchBoost = clamp((aimDist - 5) / 8, -0.4, 0.6);
     let gx = p.x + Math.cos(a) * 0.4, gy = p.y + Math.sin(a) * 0.4;
     if (GameMap.solidAt(gx, gy)) { gx = p.x; gy = p.y; }   // nose against a wall
     S.grenades.push({
@@ -724,10 +732,12 @@ export const Game = (() => {
   function crouchPressed() {
     const p = S.player;
     if (p.sprinting && p.slideCd <= 0 && p.slideT <= 0) {
-      // slide!
+      // dodge-slide in the direction of travel (falls back to facing)
       p.slideT = CONFIG.SLIDE_TIME;
       p.slideCd = CONFIG.SLIDE_COOLDOWN;
-      p.slideDx = Math.cos(p.a); p.slideDy = Math.sin(p.a);
+      const vl = Math.hypot(p.vel.x, p.vel.y);
+      if (vl > 0.1) { p.slideDx = p.vel.x / vl; p.slideDy = p.vel.y / vl; }
+      else { p.slideDx = Math.cos(p.a); p.slideDy = Math.sin(p.a); }
       Sound.play('slide');
     } else {
       p.crouching = true;
@@ -735,18 +745,22 @@ export const Game = (() => {
   }
   function crouchReleased() { S.player.crouching = false; }
 
+  // fixed iso camera sits to the southeast: "up" on screen is this direction
+  const CAM_A = -3 * Math.PI / 4;
   let stepTimer = 0;
   function updatePlayer(dt) {
     const p = S.player, sp = spec();
 
-    const wantAds = mouseRight && !p.sprinting && p.reloading <= 0 && p.slideT <= 0;
-    p.adsT = clamp(p.adsT + (wantAds ? dt * 7 : -dt * 7), 0, 1);
-    p.swapT = Math.max(0, p.swapT - dt);
-    p.slideCd = Math.max(0, p.slideCd - dt);
-
-    // arrow keys fallback
+    // face the cursor (arrow keys still nudge aim as a trackpad fallback)
+    p.adsT = clamp(p.adsT - dt * 7, 0, 1);
     const turn = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
     if (turn) p.a = (p.a + turn * 2.6 * dt) % TAU;
+    else if (S.cursor.seen) {
+      const adx = S.aim.x - p.x, ady = S.aim.y - p.y;
+      if (adx * adx + ady * ady > 0.01) p.a = Math.atan2(ady, adx);
+    }
+    p.swapT = Math.max(0, p.swapT - dt);
+    p.slideCd = Math.max(0, p.slideCd - dt);
 
     const fwd = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
     const strafe = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0);
@@ -759,13 +773,13 @@ export const Game = (() => {
       tryMove(p, p.x + p.vel.x * dt, p.y + p.vel.y * dt, CONFIG.PLAYER_RADIUS);
       p.sprinting = false;
     } else {
-      p.sprinting = !!(keys.ShiftLeft || keys.ShiftRight) && fwd > 0 && p.adsT < 0.3;
+      p.sprinting = !!(keys.ShiftLeft || keys.ShiftRight) && (fwd !== 0 || strafe !== 0);
       let speed = CONFIG.BASE_SPEED;
       if (p.sprinting) speed *= CONFIG.SPRINT_MULT;
-      if (p.adsT > 0.3) speed *= CONFIG.ADS_MULT;
       if (p.crouching) speed *= CONFIG.CROUCH_MULT;
       if (p.speedBoost > 0) speed *= 1.3;
-      const ca = Math.cos(p.a), sa = Math.sin(p.a);
+      // screen-relative movement under the fixed iso camera
+      const ca = Math.cos(CAM_A), sa = Math.sin(CAM_A);
       let mx = ca * fwd - sa * strafe, my = sa * fwd + ca * strafe;
       const ml = Math.hypot(mx, my);
       if (ml > 0) {
@@ -1020,6 +1034,12 @@ export const Game = (() => {
   function update(dt) {
     S.time += dt;
 
+    // project the cursor onto the ground so the hero can face/shoot at it
+    if (S.cursor.seen && !S.aimLocked) {
+      const ap = Renderer.aimPoint(S.cursor.sx, S.cursor.sy);
+      if (ap) { S.aim.x = ap.x; S.aim.y = ap.y; }
+    }
+
     Sound.listener(S.player.x, S.player.y, S.player.a);
     S.aliveCount = countAlive();
     Sound.music.setIntensity(clamp(S.aliveCount / 10 + (S.boss ? 0.35 : 0), 0.15, 1));
@@ -1152,6 +1172,7 @@ export const Game = (() => {
       wave: n => { S.enemies = []; S.toSpawn = 0; S.boss = null; S.intermission = 0; startWave(n); },
       give: w => { S.player.owned[w] = true; S.player.ammo[w] = WEAPONS[w].mag; S.player.reserve[w] = WEAPONS[w].maxReserve; },
       spawn: (t, x, y, elite = false) => { const e = makeEnemy(t, x, y, elite); S.enemies.push(e); return e; },
+      aimAt: (x, y) => { S.aim.x = x; S.aim.y = y; S.cursor.seen = true; S.aimLocked = true; },
       intermission: () => { S.enemies = []; S.toSpawn = 0; S.boss = null; S.intermission = 60; },
       nuke: () => {
         S.toSpawn = 0;

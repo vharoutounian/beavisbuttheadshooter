@@ -134,11 +134,11 @@ export const Renderer = (() => {
   }
 
   // ------------------------------------------------------------- lights
-  const hemi = new THREE.HemisphereLight(0xbdd7f2, 0x7a6f58, 0.34);
+  const hemi = new THREE.HemisphereLight(0x2a3b66, 0x1a140f, 0.66);
   scene.add(hemi);
-  // golden-hour sun: low enough to appear on screen (god rays, long shadows)
-  const sunDir = new THREE.Vector3(24, 11, -20);
-  const sun = new THREE.DirectionalLight(0xffdcaa, 1.7);
+  // full moon, low over the skyline: cool key light, god rays, long shadows
+  const sunDir = new THREE.Vector3(24, 14, -20);
+  const sun = new THREE.DirectionalLight(0xa8bce8, 0.85);
   sun.position.copy(sunDir).add(new THREE.Vector3(GameMap.W / 2, 0, GameMap.H / 2));
   sun.target.position.set(GameMap.W / 2, 0, GameMap.H / 2);
   sun.castShadow = true;
@@ -160,12 +160,12 @@ export const Renderer = (() => {
   {
     const sg = skyCanvas.getContext('2d');
     const grad = sg.createLinearGradient(0, 0, 0, 512);
-    grad.addColorStop(0, '#1e56ae');
-    grad.addColorStop(0.38, '#4c8ed6');
-    grad.addColorStop(0.62, '#8fbce8');
-    grad.addColorStop(0.78, '#cadff2');
-    grad.addColorStop(0.88, '#f2e8ce');    // warm horizon haze
-    grad.addColorStop(1, '#e8dfc4');
+    grad.addColorStop(0, '#070b1c');
+    grad.addColorStop(0.42, '#101a36');
+    grad.addColorStop(0.68, '#1c2a4e');
+    grad.addColorStop(0.85, '#2c3c62');
+    grad.addColorStop(0.94, '#43384a');    // dirty amber city-glow horizon
+    grad.addColorStop(1, '#4e3c38');
     sg.fillStyle = grad; sg.fillRect(0, 0, 4, 512);
   }
   const sky = new THREE.Mesh(
@@ -176,7 +176,7 @@ export const Renderer = (() => {
   );
   sky.position.set(GameMap.W / 2, 0, GameMap.H / 2);
   scene.add(sky);
-  scene.fog = new THREE.Fog(0xb3c6d8, 32, 88);
+  scene.fog = new THREE.Fog(0x0c1220, 20, 62);
 
   // the sun itself + glow (bloom picks these up)
   function glowSprite(size, inner, outer) {
@@ -195,12 +195,12 @@ export const Renderer = (() => {
     sp.scale.set(size, size, 1);
     return sp;
   }
-  const sunDisc = glowSprite(10, 'rgba(255,252,240,1)', 'rgba(255,235,180,0)');
-  const sunGlow = glowSprite(30, 'rgba(255,240,200,0.5)', 'rgba(255,230,170,0)');
+  const sunDisc = glowSprite(9, 'rgba(235,242,255,1)', 'rgba(190,210,255,0)');
+  const sunGlow = glowSprite(26, 'rgba(170,190,255,0.4)', 'rgba(150,175,255,0)');
   // solid disc mesh: the occludable light source the god-rays effect samples
   const sunMesh = new THREE.Mesh(
-    new THREE.CircleGeometry(3.4, 24),
-    new THREE.MeshBasicMaterial({ color: 0xfff4d8, fog: false })
+    new THREE.CircleGeometry(3, 24),
+    new THREE.MeshBasicMaterial({ color: 0xdfe9ff, fog: false })
   );
   {
     const sp = sunDir.clone().normalize().multiplyScalar(88)
@@ -230,13 +230,13 @@ export const Renderer = (() => {
     envScene.add(envGround);
     const envSun = new THREE.Mesh(
       new THREE.SphereGeometry(3, 12, 8),
-      new THREE.MeshBasicMaterial({ color: 0xfff2cc })
+      new THREE.MeshBasicMaterial({ color: 0xcfe0ff })
     );
     envSun.position.copy(sunDir).normalize().multiplyScalar(44);
     envScene.add(envSun);
     const pmrem = new THREE.PMREMGenerator(renderer);
     scene.environment = pmrem.fromScene(envScene, 0.05).texture;
-    scene.environmentIntensity = 0.62;
+    scene.environmentIntensity = 0.55;
     pmrem.dispose();
   }
 
@@ -257,7 +257,8 @@ export const Renderer = (() => {
   const clouds = [];
   for (let i = 0; i < 10; i++) {
     const s = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: cloudTex, transparent: true, opacity: 0.8, fog: false, depthWrite: false,
+      map: cloudTex, transparent: true, opacity: 0.28, fog: false, depthWrite: false,
+      color: 0x5a6a96,
     }));
     const scale = 10 + Math.random() * 12;
     s.scale.set(scale, scale * 0.45, 1);
@@ -284,8 +285,8 @@ export const Renderer = (() => {
       }
     const winTex = new THREE.CanvasTexture(winCanvas);
     winTex.colorSpace = THREE.SRGBColorSpace;
-    const bmat = std({ color: 0xffffff, map: winTex, roughness: 0.9 });
-    const bmat2 = std({ color: 0x8a929e, map: winTex, roughness: 0.9 });
+    const bmat = std({ color: 0x6a7280, map: winTex, roughness: 0.9 });
+    const bmat2 = std({ color: 0x4a525e, map: winTex, roughness: 0.9 });
     const capMat2 = std({ color: 0x2e343e, roughness: 0.95 });
     for (let i = 0; i < 16; i++) {
       const a = (i / 16) * Math.PI * 2 + 0.2;
@@ -314,8 +315,9 @@ export const Renderer = (() => {
     dustSeed[i * 2 + 1] = 0.2 + Math.random() * 0.5;
   }
   dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3).setUsage(THREE.DynamicDrawUsage));
+  // drifting embers in the night air
   const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({
-    color: 0xfff2cc, size: 0.025, transparent: true, opacity: 0.5,
+    color: 0xff9a3c, size: 0.035, transparent: true, opacity: 0.75,
     blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true,
   }));
   dust.frustumCulled = false;
@@ -474,6 +476,39 @@ export const Renderer = (() => {
         placed++;
       }
     }
+  }
+
+  // wall torches: warm flickering pools of light around the night arena
+  const torches = [];
+  {
+    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    const stickGeo = new THREE.CylinderGeometry(0.022, 0.03, 0.5, 8);
+    const stickMat = std({ color: 0x3a2a18, roughness: 0.9 });
+    const cupGeo = new THREE.CylinderGeometry(0.055, 0.028, 0.09, 10);
+    const cupMat = std({ color: 0x2b2b30, roughness: 0.5, metalness: 0.7 });
+    let count = 0;
+    for (let y = 1; y < GameMap.H - 1 && count < 14; y++)
+      for (let x = 1; x < GameMap.W - 1 && count < 14; x++) {
+        if (GameMap.grid[y][x] <= 0 || GameMap.grid[y][x] >= 8) continue;
+        if ((x * 7 + y * 5) % 17 !== 0) continue;
+        const open = dirs.find(([ox, oy]) => GameMap.grid[y + oy][x + ox] === 0);
+        if (!open) continue;
+        const tx = x + 0.5 + open[0] * 0.56, tz = y + 0.5 + open[1] * 0.56;
+        const gp = new THREE.Group();
+        const stick = new THREE.Mesh(stickGeo, stickMat);
+        stick.rotation.set(open[1] * 0.5, 0, -open[0] * 0.5);
+        const cup = new THREE.Mesh(cupGeo, cupMat);
+        cup.position.set(open[0] * 0.13, 0.24, open[1] * 0.13);
+        const flame = glowSprite(0.6, 'rgba(255,205,110,1)', 'rgba(255,110,20,0)');
+        flame.position.set(open[0] * 0.13, 0.36, open[1] * 0.13);
+        const light = new THREE.PointLight(0xff8c3a, 2.4, 7.5, 1.8);
+        light.position.copy(flame.position).y += 0.1;
+        gp.add(stick, cup, flame, light);
+        gp.position.set(tx, 1.62, tz);
+        scene.add(gp);
+        torches.push({ flame, light, seed: count * 2.13 });
+        count++;
+      }
   }
 
   let floor = null;
@@ -968,12 +1003,14 @@ export const Renderer = (() => {
   const decalTex = new THREE.CanvasTexture(Textures.bulletHole);
   const decals = [];
   const decalGeo = new THREE.PlaneGeometry(0.1, 0.1);
-  function addDecal(point, normal) {
+  const _dp = new THREE.Vector3(), _dn = new THREE.Vector3();
+  function addDecal(x, h, z, nx, ny, nz) {
     const m = new THREE.Mesh(decalGeo, new THREE.MeshBasicMaterial({
       map: decalTex, transparent: true, depthWrite: false, opacity: 0.95,
     }));
-    m.position.copy(point).addScaledVector(normal, 0.014);
-    m.lookAt(point.clone().add(normal));
+    _dp.set(x, h, z); _dn.set(nx, ny, nz);
+    m.position.copy(_dp).addScaledVector(_dn, 0.014);
+    m.lookAt(_dp.add(_dn));
     m.rotation.z = Math.random() * Math.PI;
     scene.add(m);
     decals.push({ m, t: 22 });
@@ -1196,59 +1233,191 @@ export const Renderer = (() => {
   }
   const GUN_SCALE = 0.72;
   const sleeveMat = std({ color: 0x57575c, roughness: 0.85 });
-  const guns = {};
-  for (const key of SLOT_ORDER) guns[key] = buildGun(key);
 
-  let swayA = 0, swayP = 0, prevA = null, prevPitch = 0;
-  function updateWeapon(dt) {
+  // -------------------------------------------------- third-person hero
+  // The player is on screen now: a sculpted Beavis / Butt-Head rig with
+  // the current weapon in hand, lit by the torches like everyone else.
+  const HERO_LOOKS = {
+    beavis: {
+      skin: 0xeec388, shirt: 0x2a4d9b, pants: 0x3c414c, hair: 0xf0d24a,
+      brow: 0x8a6a1a, tall: 1,
+    },
+    butthead: {
+      skin: 0xe2b184, shirt: 0x5a6066, pants: 0x4a3428, hair: 0x6b4a26,
+      brow: 0x3a2a14, tall: 1.06,
+    },
+  };
+  function buildHeldGun(key) {
+    const hg = new THREE.Group();
+    const long = { pistol: 0.24, smg: 0.4, rifle: 0.56, shotgun: 0.6, sniper: 0.78 }[key];
+    const body = bx(0.05, 0.08, long * 0.55, gunMetal2);
+    body.position.z = -long * 0.12;
+    const barrel = cyl(0.014, long * 0.55, gunMetal);
+    barrel.position.set(0, 0.016, -long * 0.5);
+    const grip = bx(0.036, 0.09, 0.045, gunGrip);
+    grip.position.set(0, -0.07, 0.03); grip.rotation.x = 0.25;
+    hg.add(body, barrel, grip);
+    if (key === 'shotgun') {
+      const b2 = cyl(0.014, long * 0.55, gunMetal);
+      b2.position.set(0.024, 0.016, -long * 0.5);
+      hg.add(b2);
+    }
+    if (key === 'sniper') {
+      const scopeT = cyl(0.02, 0.14, gunMetal2);
+      scopeT.position.set(0, 0.055, -0.08);
+      hg.add(scopeT);
+    }
+    if (key === 'rifle' || key === 'smg') {
+      const mag = bx(0.03, 0.1, 0.045, gunMetal2);
+      mag.position.set(0, -0.08, -0.1); mag.rotation.x = 0.3;
+      hg.add(mag);
+    }
+    const flash = glowSprite(0.5, 'rgba(255,240,180,1)', 'rgba(255,140,20,0)');
+    flash.position.set(0, 0.016, -long * 0.8);
+    flash.visible = false;
+    hg.userData.flash = flash;
+    hg.add(flash);
+    return hg;
+  }
+
+  let hero = null;
+  function makeHeroRig(character) {
+    if (hero) scene.remove(hero);
+    const look = HERO_LOOKS[character] || HERO_LOOKS.butthead;
+    const rig = new THREE.Group();
+    const parts = {};
+    const skinMat = rigMat(look.skin, 0.62);
+
+    const hips = new THREE.Group();
+    hips.position.y = 0.88;
+    rig.add(hips);
+    for (const side of [-1, 1]) {
+      const leg = new THREE.Mesh(G.leg, rigMat(look.pants));
+      leg.position.set(side * 0.112, 0, 0);
+      const boot = new THREE.Mesh(G.boot, rigMat(0x2a2a30, 0.55));
+      boot.position.set(0, -0.84, 0.05);
+      leg.add(boot);
+      hips.add(leg);
+      parts[side < 0 ? 'legL' : 'legR'] = leg;
+    }
+    const upper = new THREE.Group();
+    upper.position.y = 0.88;
+    rig.add(upper);
+    parts.upper = upper;
+    const shirtMat = rigMat(look.shirt);
+    const torso = new THREE.Mesh(G.torso, shirtMat);
+    torso.position.y = 0.3;
+    const belt = new THREE.Mesh(G.belt, rigMat(0x24242a, 0.7));
+    belt.position.y = 0.05;
+    upper.add(torso, belt);
+    for (const side of [-1, 1]) {
+      const arm = new THREE.Mesh(G.arm, shirtMat);
+      arm.position.set(side * 0.245, 0.495, 0);
+      const shoulder = new THREE.Mesh(G.shoulder, shirtMat);
+      shoulder.position.set(side * -0.012, 0.01, 0);
+      shoulder.scale.setScalar(0.92);
+      const hand = new THREE.Mesh(G.hand, skinMat);
+      hand.position.set(0, -0.578, 0);
+      arm.add(shoulder, hand);
+      upper.add(arm);
+      parts[side < 0 ? 'armL' : 'armR'] = arm;
+    }
+    // head: exaggerated per-character skull + signature hair
+    const head = new THREE.Group();
+    head.position.y = 0.585;
+    upper.add(head);
+    parts.head = head;
+    const neck = new THREE.Mesh(G.neck, skinMat);
+    neck.position.y = 0.02;
+    const skull = new THREE.Mesh(G.skull, skinMat);
+    skull.position.y = 0.195;
+    skull.scale.y = look.tall;
+    const jaw = new THREE.Mesh(G.jaw, skinMat);
+    jaw.position.set(0, 0.08, character === 'beavis' ? 0.045 : 0.02); // underbite
+    head.add(neck, skull, jaw);
+    const whiteMat = rigMat(0xf4f2ea, 0.35);
+    const blackMat = rigMat(0x141414, 0.3);
+    for (const side of [-1, 1]) {
+      const eye = new THREE.Mesh(G.eye, whiteMat);
+      eye.position.set(side * 0.058, 0.215, 0.115);
+      const pupil = new THREE.Mesh(G.pupil, blackMat);
+      pupil.position.set(0, 0, 0.026);
+      eye.add(pupil);
+      const brow = new THREE.Mesh(G.brow, rigMat(look.brow, 0.8));
+      brow.position.set(side * 0.06, 0.262, 0.126);
+      brow.rotation.set(-0.12, 0, side * -0.32);
+      head.add(eye, brow);
+      const ear = new THREE.Mesh(G.ear, skinMat);
+      ear.position.set(side * 0.142, 0.185, -0.005);
+      head.add(ear);
+    }
+    const nose = new THREE.Mesh(G.nose, skinMat);
+    nose.position.set(0, 0.155, 0.145);
+    if (character === 'butthead') nose.scale.set(1.5, 1.35, 1.3);
+    const mouth = new THREE.Mesh(G.mouth, rigMat(0x4a2018, 0.6));
+    mouth.position.set(0, 0.065, character === 'beavis' ? 0.152 : 0.134);
+    head.add(nose, mouth);
+    const hairMat = rigMat(look.hair, 0.9);
+    if (character === 'beavis') {
+      // the towering blond pompadour
+      const pomp = new THREE.Mesh(G.skull, hairMat);
+      pomp.scale.set(0.82, 1.55, 0.85);
+      pomp.position.set(0, 0.38, -0.01);
+      head.add(pomp);
+    } else {
+      const mass = new THREE.Mesh(G.skull, hairMat);
+      mass.scale.set(0.95, 1.28, 0.95);
+      mass.position.set(0, 0.31, -0.02);
+      head.add(mass);
+    }
+    // held weapons live in the right hand; one visible at a time
+    parts.heldGuns = {};
+    for (const key of SLOT_ORDER) {
+      const hg = buildHeldGun(key);
+      hg.position.set(0.02, -0.58, -0.05);
+      hg.visible = false;
+      parts.armR.add(hg);
+      parts.heldGuns[key] = hg;
+    }
+    rig.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    rig.userData = { parts };
+    scene.add(rig);
+    hero = rig;
+    return rig;
+  }
+
+  function syncHero(dt) {
     const S = Game.S, p = S.player;
-    for (const key of SLOT_ORDER) guns[key].visible = false;
-    if (!p || S.mode === 'menu') return;
+    if (!hero || !p) return;
+    const P = hero.userData.parts;
+    const show = S.mode === 'playing' || S.mode === 'paused' || S.mode === 'dead';
+    hero.visible = show;
+    if (!show) return;
+    hero.position.set(p.x, 0, p.y);
+    hero.rotation.y = Math.PI / 2 - p.a;
+
+    if (S.mode === 'dead') {
+      hero.rotation.x = Math.max(hero.rotation.x - dt * 4, -Math.PI / 2 * 0.94);
+      return;
+    }
+    hero.rotation.x = p.slideT > 0 ? -0.45 : 0;
+
+    const walk = Math.sin(p.bobPhase) * 0.55 * p.bobMag;
+    P.legL.rotation.x = walk; P.legR.rotation.x = -walk;
     const sp = WEAPONS[p.weapon];
-    const gun = guns[p.weapon];
-    const ud = gun.userData;
-    const scoped = sp.scope && p.adsT > 0.92;
-    if (scoped) return;                       // the 2D scope overlay takes over
-    gun.visible = true;
-
-    if (prevA === null) { prevA = p.a; prevPitch = p.pitch; }
-    let dA = p.a - prevA;
-    if (dA > Math.PI) dA -= Math.PI * 2; if (dA < -Math.PI) dA += Math.PI * 2;
-    const dP = p.pitch - prevPitch;
-    prevA = p.a; prevPitch = p.pitch;
-    swayA += (dA - swayA) * Math.min(1, dt * 10);
-    swayP += (dP - swayP) * Math.min(1, dt * 10);
-
-    const ads = p.adsT * p.adsT * (3 - 2 * p.adsT);
-    const bobX = Math.sin(p.bobPhase) * 0.012 * p.bobMag * (1 - ads * 0.9);
-    const bobY = Math.abs(Math.cos(p.bobPhase)) * 0.008 * p.bobMag * (1 - ads * 0.9);
-    const idle = Math.sin(S.time * 1.7) * 0.0022 * (1 - ads);
     const reloadT = p.reloading > 0
       ? Math.sin(Math.min(1, 1 - p.reloading / (p.reloadTotal || sp.reload)) * Math.PI) : 0;
-    const swapDip = p.swapT > 0 ? p.swapT : 0;
+    // gun arm aims forward; recoil kicks it up, reload dips it
+    P.armR.rotation.x = -1.42 + p.recoil * 0.3 + reloadT * 0.7;
+    P.armL.rotation.x = -walk * 0.55 - reloadT * 0.4;
+    P.upper.rotation.y = walk * 0.06;
 
-    // hip vs ADS anchors (ADS puts the sight line on the camera axis)
-    const hip = { x: 0.19, y: -0.175, z: -0.48 };
-    const adsP = { x: 0, y: -ud.sightY * GUN_SCALE, z: -0.36 };
-    gun.position.set(
-      hip.x + (adsP.x - hip.x) * ads - swayA * 0.06 * (1 - ads * 0.7) + bobX,
-      hip.y + (adsP.y - hip.y) * ads + swayP * 0.0004 * (1 - ads * 0.7) + bobY + idle
-        - reloadT * 0.13 - swapDip * 0.4
-        - (p.sprinting ? 0.07 : 0) - (p.slideT > 0 ? 0.05 : 0),
-      hip.z + (adsP.z - hip.z) * ads + p.recoil * 0.055
-    );
-    gun.rotation.set(
-      -swayP * 0.0016 - p.recoil * 0.09 - reloadT * 0.7
-        + (p.sprinting ? 0.55 : 0) + (p.slideT > 0 ? 0.3 : 0),
-      -swayA * 0.35 * (1 - ads * 0.7) + (p.sprinting ? 0.35 : 0),
-      (p.sprinting ? 0.25 : 0) + (p.slideT > 0 ? 0.18 : 0)
-    );
-
-    // muzzle flash
-    const f = ud.flash;
+    for (const key of SLOT_ORDER) P.heldGuns[key].visible = key === p.weapon;
+    const hg = P.heldGuns[p.weapon];
+    const f = hg.userData.flash;
     f.visible = p.recoil > 0.55;
     if (f.visible) {
-      const s = 0.16 + Math.random() * 0.14;
+      const s = 0.4 + Math.random() * 0.25;
       f.scale.set(s, s, 1);
       f.material.rotation = Math.random() * Math.PI;
     }
@@ -1334,8 +1503,8 @@ export const Renderer = (() => {
   const bloomEffect = new BloomEffect({
     blendFunction: BlendFunction.ADD,
     mipmapBlur: true,
-    luminanceThreshold: 0.72, luminanceSmoothing: 0.34,
-    intensity: 1.1, radius: 0.7, levels: 8,
+    luminanceThreshold: 0.58, luminanceSmoothing: 0.32,
+    intensity: 1.2, radius: 0.7, levels: 8,
     kernelSize: KernelSize.MEDIUM,
   });
   const toneEffect = new ToneMappingEffect({ mode: ToneMappingMode.AGX });
@@ -1359,44 +1528,70 @@ export const Renderer = (() => {
   }
 
   // ------------------------------------------------------------- camera
+  // fixed-angle isometric follow cam (ARPG view). Offset sits southeast
+  // and high; game.js's CAM_A must agree so WASD stays screen-relative.
+  const CAM_OFF = new THREE.Vector3(7.4, 12.2, 7.4);
+  const _lookAt = new THREE.Vector3();
+  const _camTarget = new THREE.Vector3();
+  let camSmooth = null;
   function applyCamera(dt) {
     const S = Game.S;
+    camera.fov = 38;
     if (S.mode === 'menu') {
+      // slow cinematic orbit of the arena behind the menu
       const at = S.attract;
-      camera.position.set(at.x, EYE(0.52), at.y);
-      camera.rotation.y = -at.a - Math.PI / 2;
-      camera.rotation.x = Math.sin(at.a * 0.5) * 0.06;
-      camera.rotation.z = 0;
-      camera.fov = 72;
+      camera.position.set(
+        at.x + Math.cos(at.a * 0.5) * 11,
+        10.5,
+        at.y + Math.sin(at.a * 0.5) * 11
+      );
+      camera.up.set(0, 1, 0);
+      camera.lookAt(at.x, 0.8, at.y);
       camera.updateProjectionMatrix();
       return;
     }
     const p = S.player;
-    const sp = WEAPONS[p.weapon];
-    const baseFov = Game.settings.fov;
-    const adsFov = sp.adsFov || 48;
-    let fov = baseFov + (adsFov - baseFov) * p.adsT;
-    if (p.sprinting) fov += 6;
-    if (p.slideT > 0) fov += 9;
-    camera.fov = fov;
+    // gentle cursor-lean: the camera peeks a little toward the aim point
+    const leanX = clampN((S.aim.x - p.x) * 0.08, -0.9, 0.9);
+    const leanZ = clampN((S.aim.y - p.y) * 0.08, -0.9, 0.9);
+    _camTarget.set(p.x + leanX, 0, p.y + leanZ);
+    if (!camSmooth) camSmooth = _camTarget.clone();
+    camSmooth.lerp(_camTarget, Math.min(1, dt * 7));
+
+    const shakeAmp = (Game.settings.shake ? S.shake : 0) * 0.004;
+    camera.position.set(
+      camSmooth.x + CAM_OFF.x + (Math.random() - 0.5) * shakeAmp,
+      CAM_OFF.y + (Math.random() - 0.5) * shakeAmp,
+      camSmooth.z + CAM_OFF.z + (Math.random() - 0.5) * shakeAmp
+    );
+    camera.up.set(0, 1, 0);
+    _lookAt.set(camSmooth.x, 0.9, camSmooth.z);
+    camera.lookAt(_lookAt);
     camera.updateProjectionMatrix();
 
-    const shakeAmp = (Game.settings.shake ? S.shake : 0) * 0.005;
-    const bobY = Math.sin(p.bobPhase * 2) * 0.028 * p.bobMag;
-    camera.position.set(
-      p.x + (Math.random() - 0.5) * shakeAmp,
-      EYE(p.eye) + bobY + (Math.random() - 0.5) * shakeAmp,
-      p.y + (Math.random() - 0.5) * shakeAmp
-    );
-    camera.rotation.y = -p.a - Math.PI / 2;
-    camera.rotation.x = (p.pitch + p.recoilPitch) / 170 * 0.72;
-    camera.rotation.z = p.roll;
-
-    muzzleLight.intensity = S.flash > 0 ? 3.2 : 0;
+    muzzleLight.intensity = S.flash > 0 ? 3.4 : 0;
     if (S.flash > 0) {
-      _dir.set(0, 0, -1).applyQuaternion(camera.quaternion);
-      muzzleLight.position.copy(camera.position).addScaledVector(_dir, 0.7);
+      muzzleLight.position.set(
+        p.x + Math.cos(p.a) * 0.6, 1.2, p.y + Math.sin(p.a) * 0.6);
     }
+  }
+  const clampN = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  // project a client-pixel cursor position onto the aim plane (torso height)
+  const AIM_H = 0.9;
+  const _aimV = new THREE.Vector3();
+  function aimPoint(sx, sy) {
+    const winW = window.innerWidth || DW, winH = window.innerHeight || DH;
+    const fitW = Math.min(winW, winH * 16 / 9), fitH = fitW * 9 / 16;
+    const nx = ((sx - (winW - fitW) / 2) / fitW) * 2 - 1;
+    const ny = -(((sy - (winH - fitH) / 2) / fitH) * 2 - 1);
+    _aimV.set(nx, ny, 0.5).unproject(camera).sub(camera.position).normalize();
+    if (_aimV.y > -0.02) return null;
+    const t = (AIM_H - camera.position.y) / _aimV.y;
+    return {
+      x: camera.position.x + _aimV.x * t,
+      y: camera.position.z + _aimV.z * t,
+    };
   }
 
   // ------------------------------------------------------------- frame
@@ -1404,8 +1599,16 @@ export const Renderer = (() => {
     const S = Game.S;
     if (S.mode === 'playing') tuneResolution(dt);
     applyCamera(dt);
-    updateWeapon(dt);
+    syncHero(dt);
     applyQuality();
+
+    // torch flicker
+    for (const tc of torches) {
+      const t = (S.time || 0) + tc.seed;
+      tc.light.intensity = 2.15 + Math.sin(t * 7.3) * 0.3 + Math.sin(t * 13.7) * 0.18;
+      const fs = 0.52 + Math.sin(t * 9.1) * 0.07;
+      tc.flame.scale.set(fs, fs * 1.25, 1);
+    }
 
     for (const c of clouds) {
       c.position.x += c.userData.drift * dt;
@@ -1436,11 +1639,12 @@ export const Renderer = (() => {
   function onRunStart(character) {
     Hud.onRunStart(character);
     sleeveMat.color.set(CHARACTERS[character].sleeve);
-    swayA = 0; swayP = 0; prevA = null; prevPitch = 0;
+    makeHeroRig(character);
+    camSmooth = null;
   }
 
   return {
-    render, onRunStart, hitscan, addDecal, worldToScreen, setSize,
+    render, onRunStart, hitscan, addDecal, worldToScreen, aimPoint, setSize,
     stats: () => ({ W, H, renderScale }),
     _debug: { camera, raycaster, scene, solidMeshes, rigs },
   };

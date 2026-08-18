@@ -214,5 +214,5 @@ export const DEFAULT_SETTINGS = {
   music: true,
   dmgNumbers: true,
   shake: true,
-  minimapRotate: true,
+  minimapRotate: false,   // iso camera never turns; keep the map north-up
 };
