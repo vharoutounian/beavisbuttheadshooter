@@ -124,30 +124,27 @@ export const Game = (() => {
     if (S.player && (e.code === 'KeyC' || e.code === 'ControlLeft')) crouchReleased();
   });
 
-  // Classic ARPG mouse: click ground = move there, click an enemy = attack
-  // it, hold = keep moving/attacking, Shift+click = force attack in place.
-  // A click while steering with WASD always shoots (run-and-gun).
+  // Split-button ARPG mouse: LEFT fires at the cursor (locking onto any
+  // enemy under it), RIGHT walks — click to move there, hold to steer.
+  // Fire while walking for run-and-gun. Grenades live on G.
   canvas.addEventListener('mousedown', e => {
     if (S.shopOpen || S.mode !== 'playing') return;
     if (e.button === 0) {
       mouseDown = true;
-      const wasd = keys.KeyW || keys.KeyA || keys.KeyS || keys.KeyD;
-      if (e.shiftKey || wasd || S.hoverEnemy) {
-        attackHold = true;
-        S.attackTarget = S.hoverEnemy || null;
-        S.player.moveTarget = null;
-        wantFire = true;
-      } else {
-        moveHold = true;
-        S.player.moveTarget = { x: S.aim.x, y: S.aim.y };
-        Renderer.moveMarker(S.aim.x, S.aim.y);
-      }
+      attackHold = true;
+      S.attackTarget = S.hoverEnemy || null;
+      wantFire = true;
     }
-    if (e.button === 2) { mouseRight = true; throwGrenade(); }
+    if (e.button === 2) {
+      mouseRight = true;
+      moveHold = true;
+      S.player.moveTarget = { x: S.aim.x, y: S.aim.y };
+      Renderer.moveMarker(S.aim.x, S.aim.y);
+    }
   });
   document.addEventListener('mouseup', e => {
-    if (e.button === 0) { mouseDown = false; moveHold = false; attackHold = false; }
-    if (e.button === 2) mouseRight = false;
+    if (e.button === 0) { mouseDown = false; attackHold = false; }
+    if (e.button === 2) { mouseRight = false; moveHold = false; }
   });
   canvas.addEventListener('contextmenu', e => e.preventDefault());
   document.addEventListener('mousemove', e => {
@@ -848,23 +845,12 @@ export const Game = (() => {
     p.swapT = Math.max(0, p.swapT - dt);
     p.slideCd = Math.max(0, p.slideCd - dt);
 
-    // while holding an attack on a live target, track it; re-acquire under
+    // while holding fire on a live target, track it; re-acquire under
     // the cursor if it dies mid-hold (classic hold-to-attack behavior)
     if (attackHold) {
       if (S.attackTarget && S.attackTarget.dead) S.attackTarget = null;
       if (!S.attackTarget && S.hoverEnemy) S.attackTarget = S.hoverEnemy;
     } else S.attackTarget = null;
-
-    // attack-move: a clicked target out of range or line of sight makes the
-    // hero WALK toward it, opening fire only once engaged
-    let chase = null, engaged = true;
-    if (attackHold && S.attackTarget) {
-      const t = S.attackTarget;
-      const range = clamp(WEAPONS[p.weapon].falloffStart * 0.75, 3.5, 13);
-      const d = Math.hypot(t.x - p.x, t.y - p.y);
-      engaged = d <= range && hasLOS(p.x, p.y, t.x, t.y);
-      if (!engaged) chase = t;
-    }
 
     // facing: locked target > cursor; arrow keys as a trackpad fallback
     const turn = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
@@ -906,10 +892,6 @@ export const Game = (() => {
         const ca = Math.cos(p.a), sa = Math.sin(p.a);
         mx = ca * fwd - sa * strafe; my = sa * fwd + ca * strafe;
         p.navPath = null; p.navGoal = -1;
-      } else if (chase) {
-        // route around walls to the clicked target
-        const nav = navSteer(p, chase);
-        if (nav) { mx = nav.mx; my = nav.my; }
       } else if (p.moveTarget) {
         const dTot = Math.hypot(p.moveTarget.x - p.x, p.moveTarget.y - p.y);
         if (dTot < 0.16 && !moveHold) {
@@ -930,7 +912,7 @@ export const Game = (() => {
         p.vel.x = mx * speed; p.vel.y = my * speed;
         tryMove(p, p.x + p.vel.x * dt, p.y + p.vel.y * dt, CONFIG.PLAYER_RADIUS);
         // face the direction of travel when running a move order
-        // (a chase keeps facing its target via the lock above)
+        // (holding fire keeps facing the target instead)
         if (p.moveTarget && !attackHold) p.a = Math.atan2(my, mx);
         p.bobPhase += dt * (p.sprinting ? 13 : p.crouching ? 6 : 9);
         p.bobMag = clamp(p.bobMag + dt * 6, 0, 1);
@@ -951,9 +933,8 @@ export const Game = (() => {
     const targetRoll = p.slideT > 0 ? 0.06 : (strafe !== 0 && p.slideT <= 0 ? strafe * 0.012 : 0);
     p.roll += (targetRoll - p.roll) * clamp(dt * 8, 0, 1);
 
-    // firing: a held attack keeps firing at the weapon's rate of fire,
-    // but never before the hero has walked into range + line of sight
-    if (!S.shopOpen && engaged) {
+    // firing: held left button keeps firing at the weapon's rate of fire
+    if (!S.shopOpen) {
       if (wantFire || attackHold) fire();
     }
     wantFire = false;
