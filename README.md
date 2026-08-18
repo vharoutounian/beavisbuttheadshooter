@@ -36,10 +36,12 @@ Pick your dumbass, click **DEPLOY**, and click the screen to grab mouse lock.
 
 | Input | Action |
 | --- | --- |
-| `WASD` | Move (screen-relative) |
-| Mouse | Aim — the hero faces the cursor; click to fire |
+| Click ground | Move there (hold to keep moving with the cursor) |
+| Click enemy | Attack it (hold to keep attacking; re-targets under the cursor) |
+| `Shift` + click | Force attack in place |
+| `WASD` | Move directly, screen-relative (click while steering = fire) |
 | Right mouse / `G` | Grenade at the cursor (farther cursor = longer throw) |
-| `Shift` | Sprint |
+| `Shift` | Sprint (while using WASD) |
 | `C` / `Ctrl` | **Dodge-slide** while sprinting |
 | `R` | Reload |
 | `Tab` / `B` | Shop (between waves) |

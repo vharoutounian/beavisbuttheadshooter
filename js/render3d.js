@@ -1280,6 +1280,40 @@ export const Renderer = (() => {
     return hg;
   }
 
+  // ---------------------------------------- ARPG ground feedback rings
+  const ringGeo = new THREE.RingGeometry(0.72, 0.86, 40).rotateX(-Math.PI / 2);
+  const heroRing = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({
+    color: 0xf6c945, transparent: true, opacity: 0.28,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  }));
+  heroRing.position.y = 0.03;
+  heroRing.visible = false;
+  scene.add(heroRing);
+  const hoverRing = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({
+    color: 0xff4030, transparent: true, opacity: 0.5,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  }));
+  hoverRing.position.y = 0.03;
+  hoverRing.visible = false;
+  scene.add(hoverRing);
+
+  // click-to-move ping: an expanding, fading ring where the order landed
+  const movePings = [];
+  function moveMarker(x, y) {
+    const m = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({
+      color: 0xaad9ff, transparent: true, opacity: 0.85,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    m.position.set(x, 0.035, y);
+    m.scale.setScalar(0.3);
+    scene.add(m);
+    movePings.push({ m, t: 0 });
+    if (movePings.length > 6) {
+      const old = movePings.shift();
+      scene.remove(old.m); old.m.material.dispose();
+    }
+  }
+
   let hero = null;
   function makeHeroRig(character) {
     if (hero) scene.remove(hero);
@@ -1602,6 +1636,35 @@ export const Renderer = (() => {
     syncHero(dt);
     applyQuality();
 
+    // ground rings: hero halo, hovered-enemy ring, click-move pings
+    {
+      const p = S.player, playing = S.mode === 'playing' && p;
+      heroRing.visible = !!playing;
+      if (playing) {
+        heroRing.position.set(p.x, 0.03, p.y);
+        const pulse = 0.94 + Math.sin((S.time || 0) * 2.4) * 0.05;
+        heroRing.scale.setScalar(0.62 * pulse);
+      }
+      const hov = playing && S.hoverEnemy;
+      hoverRing.visible = !!hov;
+      if (hov) {
+        hoverRing.position.set(hov.x, 0.03, hov.y);
+        hoverRing.scale.setScalar(0.56 * hov.type.scale);
+      }
+      for (let i = movePings.length - 1; i >= 0; i--) {
+        const mp = movePings[i];
+        mp.t += dt;
+        const f = mp.t / 0.45;
+        if (f >= 1) {
+          scene.remove(mp.m); mp.m.material.dispose();
+          movePings.splice(i, 1);
+        } else {
+          mp.m.scale.setScalar(0.3 + f * 0.5);
+          mp.m.material.opacity = 0.85 * (1 - f);
+        }
+      }
+    }
+
     // torch flicker
     for (const tc of torches) {
       const t = (S.time || 0) + tc.seed;
@@ -1644,7 +1707,7 @@ export const Renderer = (() => {
   }
 
   return {
-    render, onRunStart, hitscan, addDecal, worldToScreen, aimPoint, setSize,
+    render, onRunStart, hitscan, addDecal, worldToScreen, aimPoint, moveMarker, setSize,
     stats: () => ({ W, H, renderScale }),
     _debug: { camera, raycaster, scene, solidMeshes, rigs },
   };

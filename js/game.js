@@ -90,6 +90,7 @@ export const Game = (() => {
   // ------------------------------------------------------------- input
   const keys = {};
   let mouseDown = false, mouseRight = false, wantFire = false;
+  let moveHold = false, attackHold = false;
 
   // ARPG cursor aim: no pointer lock. The mouse stays visible; every frame
   // the cursor is projected onto the ground plane and the hero faces it.
@@ -123,13 +124,29 @@ export const Game = (() => {
     if (S.player && (e.code === 'KeyC' || e.code === 'ControlLeft')) crouchReleased();
   });
 
+  // Classic ARPG mouse: click ground = move there, click an enemy = attack
+  // it, hold = keep moving/attacking, Shift+click = force attack in place.
+  // A click while steering with WASD always shoots (run-and-gun).
   canvas.addEventListener('mousedown', e => {
     if (S.shopOpen || S.mode !== 'playing') return;
-    if (e.button === 0) { mouseDown = true; wantFire = true; }
+    if (e.button === 0) {
+      mouseDown = true;
+      const wasd = keys.KeyW || keys.KeyA || keys.KeyS || keys.KeyD;
+      if (e.shiftKey || wasd || S.hoverEnemy) {
+        attackHold = true;
+        S.attackTarget = S.hoverEnemy || null;
+        S.player.moveTarget = null;
+        wantFire = true;
+      } else {
+        moveHold = true;
+        S.player.moveTarget = { x: S.aim.x, y: S.aim.y };
+        Renderer.moveMarker(S.aim.x, S.aim.y);
+      }
+    }
     if (e.button === 2) { mouseRight = true; throwGrenade(); }
   });
   document.addEventListener('mouseup', e => {
-    if (e.button === 0) mouseDown = false;
+    if (e.button === 0) { mouseDown = false; moveHold = false; attackHold = false; }
     if (e.button === 2) mouseRight = false;
   });
   canvas.addEventListener('contextmenu', e => e.preventDefault());
@@ -751,19 +768,35 @@ export const Game = (() => {
   function updatePlayer(dt) {
     const p = S.player, sp = spec();
 
-    // face the cursor (arrow keys still nudge aim as a trackpad fallback)
     p.adsT = clamp(p.adsT - dt * 7, 0, 1);
-    const turn = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
-    if (turn) p.a = (p.a + turn * 2.6 * dt) % TAU;
-    else if (S.cursor.seen) {
-      const adx = S.aim.x - p.x, ady = S.aim.y - p.y;
-      if (adx * adx + ady * ady > 0.01) p.a = Math.atan2(ady, adx);
-    }
     p.swapT = Math.max(0, p.swapT - dt);
     p.slideCd = Math.max(0, p.slideCd - dt);
 
+    // while holding an attack on a live target, track it; re-acquire under
+    // the cursor if it dies mid-hold (classic hold-to-attack behavior)
+    if (attackHold) {
+      if (S.attackTarget && S.attackTarget.dead) S.attackTarget = null;
+      if (!S.attackTarget && S.hoverEnemy) S.attackTarget = S.hoverEnemy;
+    } else S.attackTarget = null;
+
+    // facing: locked target > cursor; arrow keys as a trackpad fallback
+    const turn = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
+    if (attackHold && S.attackTarget) {
+      p.a = Math.atan2(S.attackTarget.y - p.y, S.attackTarget.x - p.x);
+    } else if (turn) {
+      p.a = (p.a + turn * 2.6 * dt) % TAU;
+    } else if (S.cursor.seen) {
+      const adx = S.aim.x - p.x, ady = S.aim.y - p.y;
+      if (adx * adx + ady * ady > 0.01) p.a = Math.atan2(ady, adx);
+    }
+
     const fwd = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
     const strafe = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0);
+
+    // holding move drags the destination with the cursor
+    if (moveHold && S.cursor.seen) p.moveTarget = { x: S.aim.x, y: S.aim.y };
+    // WASD overrides and cancels any click-move order
+    if (fwd !== 0 || strafe !== 0) p.moveTarget = null;
 
     if (p.slideT > 0) {
       p.slideT -= dt;
@@ -773,19 +806,37 @@ export const Game = (() => {
       tryMove(p, p.x + p.vel.x * dt, p.y + p.vel.y * dt, CONFIG.PLAYER_RADIUS);
       p.sprinting = false;
     } else {
+      const moving = fwd !== 0 || strafe !== 0 || !!p.moveTarget;
       p.sprinting = !!(keys.ShiftLeft || keys.ShiftRight) && (fwd !== 0 || strafe !== 0);
       let speed = CONFIG.BASE_SPEED;
       if (p.sprinting) speed *= CONFIG.SPRINT_MULT;
       if (p.crouching) speed *= CONFIG.CROUCH_MULT;
       if (p.speedBoost > 0) speed *= 1.3;
-      // screen-relative movement under the fixed iso camera
-      const ca = Math.cos(CAM_A), sa = Math.sin(CAM_A);
-      let mx = ca * fwd - sa * strafe, my = sa * fwd + ca * strafe;
+      let mx = 0, my = 0;
+      if (fwd !== 0 || strafe !== 0) {
+        // screen-relative WASD under the fixed iso camera
+        const ca = Math.cos(CAM_A), sa = Math.sin(CAM_A);
+        mx = ca * fwd - sa * strafe; my = sa * fwd + ca * strafe;
+      } else if (p.moveTarget) {
+        const dx = p.moveTarget.x - p.x, dy = p.moveTarget.y - p.y;
+        const d = Math.hypot(dx, dy);
+        if (d < 0.16 && !moveHold) p.moveTarget = null;
+        else if (d > 0.05) {
+          mx = dx / d; my = dy / d;
+          speed *= Math.min(1, d * 3);      // ease in on arrival
+        }
+      }
       const ml = Math.hypot(mx, my);
-      if (ml > 0) {
+      if (ml > 0.01) {
         mx /= ml; my /= ml;
+        const ox = p.x, oy = p.y;
         p.vel.x = mx * speed; p.vel.y = my * speed;
         tryMove(p, p.x + p.vel.x * dt, p.y + p.vel.y * dt, CONFIG.PLAYER_RADIUS);
+        // stuck against a wall on a click-order? drop the order
+        if (p.moveTarget && Math.hypot(p.x - ox, p.y - oy) < speed * dt * 0.12)
+          p.moveTarget = null;
+        // face the direction of travel when running a move order
+        if (p.moveTarget && !attackHold) p.a = Math.atan2(my, mx);
         p.bobPhase += dt * (p.sprinting ? 13 : p.crouching ? 6 : 9);
         p.bobMag = clamp(p.bobMag + dt * 6, 0, 1);
         stepTimer -= dt;
@@ -805,9 +856,9 @@ export const Game = (() => {
     const targetRoll = p.slideT > 0 ? 0.06 : (strafe !== 0 && p.slideT <= 0 ? strafe * 0.012 : 0);
     p.roll += (targetRoll - p.roll) * clamp(dt * 8, 0, 1);
 
-    // firing
+    // firing: a held attack keeps firing at the weapon's rate of fire
     if (!S.shopOpen) {
-      if (wantFire || (mouseDown && sp.auto)) fire();
+      if (wantFire || attackHold) fire();
     }
     wantFire = false;
     p.fireCooldown = Math.max(0, p.fireCooldown - dt);
@@ -1038,6 +1089,16 @@ export const Game = (() => {
     if (S.cursor.seen && !S.aimLocked) {
       const ap = Renderer.aimPoint(S.cursor.sx, S.cursor.sy);
       if (ap) { S.aim.x = ap.x; S.aim.y = ap.y; }
+    }
+    // which enemy is under the cursor? (drives click-to-attack + highlight)
+    {
+      let hov = null, hd = Infinity;
+      for (const e of S.enemies) {
+        if (e.dead) continue;
+        const d = Math.hypot(e.x - S.aim.x, e.y - S.aim.y);
+        if (d < Math.max(0.62, 0.52 * e.type.scale) && d < hd) { hd = d; hov = e; }
+      }
+      S.hoverEnemy = hov;
     }
 
     Sound.listener(S.player.x, S.player.y, S.player.a);
