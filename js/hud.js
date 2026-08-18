@@ -278,13 +278,38 @@ export const Hud = (() => {
     const cx = DW / 2, cy = DH / 2;
     const scoped = false;
 
-    // cursor reticle (the mouse is the aim)
+    // hovered enemy: nameplate + health bar over their head
+    const hov = S.hoverEnemy;
+    if (hov && !S.shopOpen) {
+      const hp2 = Renderer.worldToScreen(hov.x, hov.y, 2.15 * hov.type.scale);
+      if (hp2.visible) {
+        const bw2 = hov.type.boss ? 130 : 84;
+        panel(hp2.x - bw2 / 2 - 6, hp2.y - 24, bw2 + 12, 34, 6);
+        label(hov.type.label + (hov.elite ? ' ★' : ''), hp2.x, hp2.y - 9, 11.5,
+          hov.elite ? '#7fb4ff' : '#ffb0a0', 'center', 800);
+        bar(hp2.x - bw2 / 2, hp2.y - 3, bw2, 6, Math.max(0, hov.hp / hov.maxHp), '#d43a3a');
+      }
+    }
+
+    // cursor reticle: gold over ground, red brackets over an enemy
     if (!S.shopOpen && S.cursor.seen) {
       const c = cursorDesignPos();
       const spreadPx = 7 + sp.spread * 260;
-      g.strokeStyle = 'rgba(255,235,190,0.9)'; g.lineWidth = 2;
-      g.beginPath(); g.arc(c.x, c.y, spreadPx, 0, TAU); g.stroke();
-      g.fillStyle = 'rgba(255,235,190,0.95)';
+      if (hov) {
+        g.strokeStyle = 'rgba(255,90,70,0.95)'; g.lineWidth = 2.5;
+        const b = spreadPx + 3, seg = 6;
+        g.beginPath();
+        for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+          g.moveTo(c.x + sx * b, c.y + sy * b - sy * seg);
+          g.lineTo(c.x + sx * b, c.y + sy * b);
+          g.lineTo(c.x + sx * b - sx * seg, c.y + sy * b);
+        }
+        g.stroke();
+      } else {
+        g.strokeStyle = 'rgba(255,235,190,0.9)'; g.lineWidth = 2;
+        g.beginPath(); g.arc(c.x, c.y, spreadPx, 0, TAU); g.stroke();
+      }
+      g.fillStyle = hov ? 'rgba(255,120,100,0.95)' : 'rgba(255,235,190,0.95)';
       g.fillRect(c.x - 1.5, c.y - 1.5, 3, 3);
       if (S.hitmarker > 0) {
         const col = S.hitmarkerKind === 'kill' ? 'rgba(255,60,60,0.95)'
