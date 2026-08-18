@@ -840,8 +840,6 @@ export const Game = (() => {
   }
   function crouchReleased() { S.player.crouching = false; }
 
-  // fixed iso camera sits to the southeast: "up" on screen is this direction
-  const CAM_A = -3 * Math.PI / 4;
   let stepTimer = 0;
   function updatePlayer(dt) {
     const p = S.player, sp = spec();
@@ -903,8 +901,9 @@ export const Game = (() => {
       if (p.speedBoost > 0) speed *= 1.3;
       let mx = 0, my = 0;
       if (fwd !== 0 || strafe !== 0) {
-        // screen-relative WASD under the fixed iso camera
-        const ca = Math.cos(CAM_A), sa = Math.sin(CAM_A);
+        // facing-relative keys: W walks toward the cursor (the way the
+        // hero is facing), S backs away, A/D strafe around it
+        const ca = Math.cos(p.a), sa = Math.sin(p.a);
         mx = ca * fwd - sa * strafe; my = sa * fwd + ca * strafe;
         p.navPath = null; p.navGoal = -1;
       } else if (chase) {
