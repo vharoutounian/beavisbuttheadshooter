@@ -218,6 +218,84 @@ export const Game = (() => {
     if (!circleHitsWall(ent.x, ny, r)) ent.y = ny;
   }
 
+  // ------------------------------------------------- hero pathfinding
+  // BFS over the walk grid so mouse orders route AROUND walls and props,
+  // with string-pulling so the hero cuts corners it can actually clear.
+  const pfPrev = new Int16Array(GameMap.W * GameMap.H);
+  function findPath(sx, sy, tx, ty) {
+    const W2 = GameMap.W, H2 = GameMap.H;
+    const solid = (x, y) => x < 0 || y < 0 || x >= W2 || y >= H2 || GameMap.grid[y][x] > 0;
+    let sx0 = sx | 0, sy0 = sy | 0, tx0 = tx | 0, ty0 = ty | 0;
+    if (solid(tx0, ty0)) {
+      // clicked into a wall: aim for the nearest open neighbor cell
+      let found = null, bd = 9;
+      for (let oy = -1; oy <= 1; oy++)
+        for (let ox = -1; ox <= 1; ox++)
+          if (!solid(tx0 + ox, ty0 + oy) && ox * ox + oy * oy < bd) {
+            bd = ox * ox + oy * oy; found = [tx0 + ox, ty0 + oy];
+          }
+      if (!found) return null;
+      tx0 = found[0]; ty0 = found[1];
+      tx = tx0 + 0.5; ty = ty0 + 0.5;
+    }
+    if (sx0 === tx0 && sy0 === ty0) return [{ x: tx, y: ty }];
+    pfPrev.fill(-1);
+    const start = sy0 * W2 + sx0, goal = ty0 * W2 + tx0;
+    pfPrev[start] = start;
+    const q = [start];
+    let qi = 0, ok = false;
+    while (qi < q.length) {
+      const c = q[qi++];
+      if (c === goal) { ok = true; break; }
+      const cx = c % W2, cy = (c / W2) | 0;
+      for (const [ox, oy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = cx + ox, ny = cy + oy;
+        if (solid(nx, ny)) continue;
+        const n = ny * W2 + nx;
+        if (pfPrev[n] !== -1) continue;
+        pfPrev[n] = c;
+        q.push(n);
+      }
+    }
+    if (!ok) return null;
+    const path = [];
+    for (let c = goal; c !== pfPrev[c]; c = pfPrev[c])
+      path.push({ x: (c % W2) + 0.5, y: ((c / W2) | 0) + 0.5 });
+    path.reverse();
+    path.push({ x: tx, y: ty });
+    return path;
+  }
+  // can the hero's whole body walk straight there? (two offset rays)
+  function walkableLine(ax, ay, bx, by) {
+    const dx = bx - ax, dy = by - ay;
+    const d = Math.hypot(dx, dy);
+    if (d < 0.001) return true;
+    const ux = dx / d, uy = dy / d;
+    const r = CONFIG.PLAYER_RADIUS * 0.9;
+    return castRay(ax - uy * r, ay + ux * r, ux, uy).dist > d
+      && castRay(ax + uy * r, ay - ux * r, ux, uy).dist > d;
+  }
+  // steer along a cached path toward dest, re-pathing when the goal moves
+  function navSteer(p, dest) {
+    const goalCell = (dest.x | 0) + (dest.y | 0) * 4096;
+    if (p.navGoal !== goalCell || !p.navPath) {
+      p.navPath = findPath(p.x, p.y, dest.x, dest.y);
+      p.navGoal = goalCell;
+    }
+    const path = p.navPath;
+    if (!path || !path.length) return null;         // unreachable: hold still
+    while (path.length > 1 && walkableLine(p.x, p.y, path[1].x, path[1].y))
+      path.shift();
+    let wp = path[0];
+    if (path.length > 1 && Math.hypot(wp.x - p.x, wp.y - p.y) < 0.22) {
+      path.shift(); wp = path[0];
+    }
+    const dx = wp.x - p.x, dy = wp.y - p.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 0.02) return null;
+    return { mx: dx / d, my: dy / d, last: path.length === 1, d };
+  }
+
   function pushFeed(text) {
     S.feed.unshift({ text, t: 5 });
     if (S.feed.length > 6) S.feed.pop();
@@ -779,6 +857,17 @@ export const Game = (() => {
       if (!S.attackTarget && S.hoverEnemy) S.attackTarget = S.hoverEnemy;
     } else S.attackTarget = null;
 
+    // attack-move: a clicked target out of range or line of sight makes the
+    // hero WALK toward it, opening fire only once engaged
+    let chase = null, engaged = true;
+    if (attackHold && S.attackTarget) {
+      const t = S.attackTarget;
+      const range = clamp(WEAPONS[p.weapon].falloffStart * 0.75, 3.5, 13);
+      const d = Math.hypot(t.x - p.x, t.y - p.y);
+      engaged = d <= range && hasLOS(p.x, p.y, t.x, t.y);
+      if (!engaged) chase = t;
+    }
+
     // facing: locked target > cursor; arrow keys as a trackpad fallback
     const turn = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
     if (attackHold && S.attackTarget) {
@@ -817,25 +906,32 @@ export const Game = (() => {
         // screen-relative WASD under the fixed iso camera
         const ca = Math.cos(CAM_A), sa = Math.sin(CAM_A);
         mx = ca * fwd - sa * strafe; my = sa * fwd + ca * strafe;
+        p.navPath = null; p.navGoal = -1;
+      } else if (chase) {
+        // route around walls to the clicked target
+        const nav = navSteer(p, chase);
+        if (nav) { mx = nav.mx; my = nav.my; }
       } else if (p.moveTarget) {
-        const dx = p.moveTarget.x - p.x, dy = p.moveTarget.y - p.y;
-        const d = Math.hypot(dx, dy);
-        if (d < 0.16 && !moveHold) p.moveTarget = null;
-        else if (d > 0.05) {
-          mx = dx / d; my = dy / d;
-          speed *= Math.min(1, d * 3);      // ease in on arrival
+        const dTot = Math.hypot(p.moveTarget.x - p.x, p.moveTarget.y - p.y);
+        if (dTot < 0.16 && !moveHold) {
+          p.moveTarget = null; p.navPath = null; p.navGoal = -1;
+        } else {
+          const nav = navSteer(p, p.moveTarget);
+          if (!nav) {
+            if (!moveHold) { p.moveTarget = null; p.navPath = null; p.navGoal = -1; }
+          } else {
+            mx = nav.mx; my = nav.my;
+            if (nav.last) speed *= Math.min(1, nav.d * 3);   // ease in on arrival
+          }
         }
       }
       const ml = Math.hypot(mx, my);
       if (ml > 0.01) {
         mx /= ml; my /= ml;
-        const ox = p.x, oy = p.y;
         p.vel.x = mx * speed; p.vel.y = my * speed;
         tryMove(p, p.x + p.vel.x * dt, p.y + p.vel.y * dt, CONFIG.PLAYER_RADIUS);
-        // stuck against a wall on a click-order? drop the order
-        if (p.moveTarget && Math.hypot(p.x - ox, p.y - oy) < speed * dt * 0.12)
-          p.moveTarget = null;
         // face the direction of travel when running a move order
+        // (a chase keeps facing its target via the lock above)
         if (p.moveTarget && !attackHold) p.a = Math.atan2(my, mx);
         p.bobPhase += dt * (p.sprinting ? 13 : p.crouching ? 6 : 9);
         p.bobMag = clamp(p.bobMag + dt * 6, 0, 1);
@@ -856,8 +952,9 @@ export const Game = (() => {
     const targetRoll = p.slideT > 0 ? 0.06 : (strafe !== 0 && p.slideT <= 0 ? strafe * 0.012 : 0);
     p.roll += (targetRoll - p.roll) * clamp(dt * 8, 0, 1);
 
-    // firing: a held attack keeps firing at the weapon's rate of fire
-    if (!S.shopOpen) {
+    // firing: a held attack keeps firing at the weapon's rate of fire,
+    // but never before the hero has walked into range + line of sight
+    if (!S.shopOpen && engaged) {
       if (wantFire || attackHold) fire();
     }
     wantFire = false;
@@ -1234,6 +1331,7 @@ export const Game = (() => {
       give: w => { S.player.owned[w] = true; S.player.ammo[w] = WEAPONS[w].mag; S.player.reserve[w] = WEAPONS[w].maxReserve; },
       spawn: (t, x, y, elite = false) => { const e = makeEnemy(t, x, y, elite); S.enemies.push(e); return e; },
       aimAt: (x, y) => { S.aim.x = x; S.aim.y = y; S.cursor.seen = true; S.aimLocked = true; },
+      path: findPath,
       intermission: () => { S.enemies = []; S.toSpawn = 0; S.boss = null; S.intermission = 60; },
       nuke: () => {
         S.toSpawn = 0;
