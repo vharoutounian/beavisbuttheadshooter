@@ -21,125 +21,147 @@ export const Textures = (() => {
   // ================================================================ walls
   const TS = 64;                 // design size; canvases are TS*TEXR square
 
-  const brick = () => hiRes(TS, TS, g => {
-    g.fillStyle = '#6e4436'; g.fillRect(0, 0, TS, TS);
-    for (let row = 0; row < 8; row++) {
-      const off = (row % 2) * 8;
-      for (let col = -1; col < 4; col++) {
-        const jx = ((row * 7 + col * 13) % 3) - 1;
-        g.fillStyle = ['#8a5341', '#82503f', '#7c4a3a'][(row + col + 4) % 3];
-        g.fillRect(col * 16 + off + 1, row * 8 + 1, 14 + jx * 0.5, 6);
-        g.fillStyle = 'rgba(255,255,255,0.06)';
-        g.fillRect(col * 16 + off + 1, row * 8 + 1, 14, 1.5);
-      }
+  // faded striped wallpaper with water stains and scuffs
+  const wallpaper = () => hiRes(TS, TS, g => {
+    g.fillStyle = '#a89a78'; g.fillRect(0, 0, TS, TS);
+    for (let x = 0; x < TS; x += 8) {
+      g.fillStyle = (x / 8) % 2 ? '#9d8f6e' : '#a89a78';
+      g.fillRect(x, 0, 8, TS);
+      g.fillStyle = 'rgba(120,100,60,0.35)';
+      g.fillRect(x + 3, 0, 1.4, TS);
     }
-    g.fillStyle = 'rgba(0,0,0,0.18)';
-    for (let i = 0; i < 46; i++) g.fillRect((i * 13) % TS, (i * 29) % TS, 2, 2);
+    // water stain blooming down from the top
+    const st = g.createRadialGradient(46, 4, 2, 46, 4, 22);
+    st.addColorStop(0, 'rgba(110,85,45,0.4)');
+    st.addColorStop(1, 'rgba(110,85,45,0)');
+    g.fillStyle = st; g.fillRect(24, 0, 40, 30);
+    g.fillStyle = 'rgba(0,0,0,0.12)';
+    for (let i = 0; i < 20; i++) g.fillRect((i * 13) % TS, 40 + (i * 7) % 22, 3, 1.6);
+    g.fillStyle = 'rgba(0,0,0,0.2)'; g.fillRect(0, 60, TS, 4);   // scuffed base
   });
 
-  const lockers = () => hiRes(TS, TS, g => {
-    g.fillStyle = '#2e4750'; g.fillRect(0, 0, TS, TS);
+  // honey-brown wood paneling, the classic den look
+  const paneling = () => hiRes(TS, TS, g => {
+    g.fillStyle = '#6a4a28'; g.fillRect(0, 0, TS, TS);
     for (let i = 0; i < 4; i++) {
       const x = i * 16;
       const grad = g.createLinearGradient(x, 0, x + 16, 0);
-      grad.addColorStop(0, '#527886'); grad.addColorStop(0.5, '#446674');
-      grad.addColorStop(1, '#35525d');
-      g.fillStyle = grad; g.fillRect(x + 1, 2, 14, 58);
-      g.fillStyle = '#2a444d';
-      for (let v = 0; v < 3; v++) g.fillRect(x + 4, 7 + v * 4, 8, 2);
-      g.fillRect(x + 4, 38, 8, 2); g.fillRect(x + 4, 42, 8, 2);
-      g.fillStyle = '#1a1d20'; g.fillRect(x + 11, 24, 3, 6);
-      g.fillStyle = '#889'; g.fillRect(x + 11.5, 25, 2, 2);
-      g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(x + 2, 3, 2, 56);
+      grad.addColorStop(0, '#7d5a34'); grad.addColorStop(0.5, '#71512e');
+      grad.addColorStop(1, '#634624');
+      g.fillStyle = grad; g.fillRect(x + 1, 0, 14, TS);
+      g.fillStyle = 'rgba(0,0,0,0.4)'; g.fillRect(x, 0, 1.4, TS);
+      // wavy wood grain
+      g.strokeStyle = 'rgba(60,38,16,0.35)'; g.lineWidth = 0.8;
+      for (let s = 0; s < 3; s++) {
+        g.beginPath();
+        g.moveTo(x + 4 + s * 4, 0);
+        for (let y = 0; y <= TS; y += 8)
+          g.lineTo(x + 4 + s * 4 + Math.sin((y + i * 9 + s * 5) * 0.4) * 1.6, y);
+        g.stroke();
+      }
     }
-    g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(0, 60, TS, 4);
-    g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(0, 0, TS, 2);
+    g.fillStyle = 'rgba(255,255,255,0.05)'; g.fillRect(0, 0, TS, 2);
   });
 
-  const chalkboard = () => hiRes(TS, TS, g => {
-    g.fillStyle = '#c8a678'; g.fillRect(0, 0, TS, TS);
-    g.fillStyle = 'rgba(0,0,0,0.07)';
-    for (let y = 0; y < TS; y += 8) g.fillRect(0, y, TS, 1);
-    g.fillStyle = '#5c3d24'; g.fillRect(4, 9, 56, 42);
-    g.fillStyle = '#2c4a38';
-    g.fillRect(7, 12, 50, 36);
-    const grad = g.createLinearGradient(7, 12, 57, 48);
-    grad.addColorStop(0, 'rgba(255,255,255,0.06)'); grad.addColorStop(1, 'rgba(0,0,0,0.1)');
-    g.fillStyle = grad; g.fillRect(7, 12, 50, 36);
-    g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 1.6;
-    g.beginPath();
-    g.moveTo(11, 20); g.lineTo(25, 20); g.moveTo(11, 27); g.lineTo(41, 27);
-    g.moveTo(11, 34); g.lineTo(31, 34); g.moveTo(11, 41); g.lineTo(37, 41);
-    g.moveTo(45, 18); g.lineTo(53, 24); g.moveTo(53, 18); g.lineTo(45, 24);
-    g.stroke();
-    g.fillStyle = '#f5f0e0'; g.fillRect(9, 49, 9, 2);
-    g.fillStyle = '#e0b0b0'; g.fillRect(21, 49, 7, 2);
-  });
-
-  const gymMetal = () => hiRes(TS, TS, g => {
-    g.fillStyle = '#4e5258'; g.fillRect(0, 0, TS, TS);
-    for (let y = 0; y < TS; y += 16) {
-      const grad = g.createLinearGradient(0, y, 0, y + 12);
-      grad.addColorStop(0, '#6d727a'); grad.addColorStop(1, '#575c63');
-      g.fillStyle = grad; g.fillRect(0, y, TS, 12);
-      g.fillStyle = '#33363b'; g.fillRect(0, y + 12, TS, 4);
-    }
-    g.fillStyle = '#292c30';
-    for (let y = 6; y < TS; y += 16)
-      for (let x = 6; x < TS; x += 12) { g.beginPath(); g.arc(x, y, 1.6, 0, 7); g.fill(); }
-    g.fillStyle = 'rgba(255,255,255,0.05)'; g.fillRect(0, 0, 2, TS);
-  });
-
-  const posterWall = () => hiRes(TS, TS, g => {
-    g.fillStyle = '#b39a6c'; g.fillRect(0, 0, TS, TS);
-    g.fillStyle = 'rgba(0,0,0,0.08)';
-    for (let y = 0; y < TS; y += 10) g.fillRect(0, y, TS, 1);
-    // gig poster
-    g.fillStyle = '#181820'; g.fillRect(8, 6, 30, 40);
-    g.fillStyle = '#e74c3c'; g.font = 'bold 9px sans-serif'; g.textAlign = 'center';
-    g.fillText('ROCK', 23, 18);
-    g.fillStyle = '#f6c945'; g.fillText('NITE', 23, 28);
-    g.fillStyle = '#eee'; g.fillRect(12, 33, 22, 1.6); g.fillRect(14, 37, 18, 1.6);
-    g.fillStyle = '#c0392b';
-    g.beginPath(); g.moveTo(18, 40); g.lineTo(23, 44); g.lineTo(28, 40); g.fill();
-    // small flyer, crooked
-    g.save(); g.translate(50, 26); g.rotate(0.14);
-    g.fillStyle = '#dfd8c4'; g.fillRect(-8, -12, 17, 24);
-    g.strokeStyle = '#888'; g.lineWidth = 1; g.strokeRect(-8, -12, 17, 24);
-    g.fillStyle = '#666';
-    for (let i = 0; i < 5; i++) g.fillRect(-6, -9 + i * 4, 13, 1.4);
-    g.restore();
-    g.fillStyle = 'rgba(0,0,0,0.2)'; g.fillRect(0, 58, TS, 6);
-  });
-
-  const exitDoor = () => hiRes(TS, TS, g => {
-    g.fillStyle = '#5b5f66'; g.fillRect(0, 0, TS, TS);
-    const grad = g.createLinearGradient(6, 0, 58, 0);
-    grad.addColorStop(0, '#7d838c'); grad.addColorStop(0.5, '#6b7178'); grad.addColorStop(1, '#585d64');
-    g.fillStyle = grad; g.fillRect(6, 4, 52, 58);
-    g.strokeStyle = '#3a3d42'; g.lineWidth = 2; g.strokeRect(6, 4, 52, 58);
-    g.strokeRect(12, 10, 40, 20);                 // window frame
-    g.fillStyle = '#20262e'; g.fillRect(12, 10, 40, 20);
-    g.fillStyle = 'rgba(150,190,220,0.25)';
-    g.beginPath(); g.moveTo(12, 30); g.lineTo(30, 10); g.lineTo(38, 10); g.lineTo(18, 30);
-    g.closePath(); g.fill();
-    g.fillStyle = '#8c9299'; g.fillRect(14, 40, 36, 5);   // push bar
-    g.fillStyle = '#c0392b'; g.fillRect(20, 0, 24, 9);    // EXIT sign
-    g.fillStyle = '#ffdddd'; g.font = 'bold 7px sans-serif'; g.textAlign = 'center';
-    g.fillText('EXIT', 32, 7);
-  });
-
-  const cafWall = () => hiRes(TS, TS, g => {
-    g.fillStyle = '#8a9a8c'; g.fillRect(0, 0, TS, TS);
+  // greasy old kitchen tile
+  const kitchenTile = () => hiRes(TS, TS, g => {
+    g.fillStyle = '#b8b09a'; g.fillRect(0, 0, TS, TS);
     for (let y = 0; y < TS; y += 16)
       for (let x = 0; x < TS; x += 16) {
-        g.fillStyle = ((x + y) / 16) % 2 ? '#9fb0a0' : '#8ba08e';
+        g.fillStyle = ((x + y) / 16) % 2 ? '#cfc7ae' : '#c3bba4';
         g.fillRect(x + 1, y + 1, 14, 14);
-        g.fillStyle = 'rgba(255,255,255,0.07)'; g.fillRect(x + 1, y + 1, 14, 2);
+        g.fillStyle = 'rgba(255,255,255,0.1)'; g.fillRect(x + 1, y + 1, 14, 2);
       }
-    g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(0, 30, TS, 3);  // grease line
-    g.fillStyle = 'rgba(120,80,20,0.18)';
-    for (let i = 0; i < 12; i++) g.fillRect((i * 17) % TS, 33 + (i * 11) % 28, 3, 2);
+    g.fillStyle = 'rgba(90,60,20,0.22)';                          // grease film
+    g.fillRect(0, 26, TS, 12);
+    for (let i = 0; i < 10; i++) {
+      g.fillStyle = `rgba(80,50,15,${0.1 + (i % 3) * 0.06})`;
+      g.fillRect((i * 19) % TS, (i * 23) % TS, 4, 3);
+    }
+  });
+
+  // cracked powder-blue bathroom tile
+  const bathTile = () => hiRes(TS, TS, g => {
+    g.fillStyle = '#7d99a0'; g.fillRect(0, 0, TS, TS);
+    for (let y = 0; y < TS; y += 8)
+      for (let x = 0; x < TS; x += 8) {
+        g.fillStyle = ((x + y) / 8) % 2 ? '#a8c4ca' : '#9cb8be';
+        g.fillRect(x + 0.5, y + 0.5, 7, 7);
+      }
+    g.strokeStyle = 'rgba(40,50,55,0.5)'; g.lineWidth = 1;         // crack
+    g.beginPath(); g.moveTo(12, 6); g.lineTo(20, 22); g.lineTo(16, 38); g.stroke();
+    g.fillStyle = 'rgba(120,90,40,0.2)'; g.fillRect(0, 56, TS, 8); // grime line
+  });
+
+  // sagging bookshelf crammed with junk
+  const bookshelf = () => hiRes(TS, TS, g => {
+    g.fillStyle = '#4a3018'; g.fillRect(0, 0, TS, TS);
+    const spines = ['#8a3030', '#33538a', '#7a7030', '#54406a', '#356048', '#96622a'];
+    for (let row = 0; row < 4; row++) {
+      const y = 4 + row * 15;
+      g.fillStyle = '#2c1c0c'; g.fillRect(2, y, 60, 12);
+      let x = 3;
+      let k = row * 7;
+      while (x < 58) {
+        const w = 3 + ((k * 13) % 4);
+        const h = 9 + ((k * 7) % 3);
+        g.fillStyle = spines[k % spines.length];
+        g.fillRect(x, y + 12 - h, w, h);
+        g.fillStyle = 'rgba(255,255,255,0.14)';
+        g.fillRect(x, y + 12 - h, w, 1);
+        x += w + 1; k++;
+      }
+      g.fillStyle = '#5c3d20'; g.fillRect(2, y + 12, 60, 3);       // shelf lip
+    }
+  });
+
+  // the front door: kicked-at, boarded, and chained
+  const frontDoor = () => hiRes(TS, TS, g => {
+    g.fillStyle = '#4a3826'; g.fillRect(0, 0, TS, TS);
+    const grad = g.createLinearGradient(6, 0, 58, 0);
+    grad.addColorStop(0, '#7a5a36'); grad.addColorStop(0.5, '#6c4e2c');
+    grad.addColorStop(1, '#5c4224');
+    g.fillStyle = grad; g.fillRect(5, 2, 54, 60);
+    g.strokeStyle = '#3a2a16'; g.lineWidth = 2; g.strokeRect(5, 2, 54, 60);
+    g.strokeRect(11, 8, 18, 22); g.strokeRect(35, 8, 18, 22);     // door panels
+    g.strokeRect(11, 36, 18, 20); g.strokeRect(35, 36, 18, 20);
+    g.fillStyle = '#c8b06a'; g.beginPath(); g.arc(31, 40, 2.4, 0, 7); g.fill();
+    // nailed board across, crooked
+    g.save(); g.translate(32, 22); g.rotate(-0.18);
+    g.fillStyle = '#8a6a40'; g.fillRect(-30, -4, 60, 8);
+    g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(-30, 2.5, 60, 1.5);
+    g.fillStyle = '#2a2a2e';
+    g.fillRect(-25, -1.5, 2, 3); g.fillRect(23, -1.5, 2, 3);
+    g.restore();
+    // splintered kick damage at the latch
+    g.strokeStyle = 'rgba(30,20,10,0.8)'; g.lineWidth = 1.4;
+    g.beginPath(); g.moveTo(54, 44); g.lineTo(46, 40); g.moveTo(54, 48); g.lineTo(44, 47);
+    g.stroke();
+  });
+
+  // boarded-up window, night showing through the gaps
+  const boardedWindow = () => hiRes(TS, TS, g => {
+    g.fillStyle = '#a89a78'; g.fillRect(0, 0, TS, TS);
+    for (let x = 0; x < TS; x += 8) {
+      g.fillStyle = (x / 8) % 2 ? '#9d8f6e' : '#a89a78';
+      g.fillRect(x, 0, 8, TS);
+    }
+    g.fillStyle = '#3a2c18'; g.fillRect(6, 6, 52, 46);            // frame
+    g.fillStyle = '#101a30'; g.fillRect(10, 10, 44, 38);          // night glass
+    g.fillStyle = 'rgba(160,190,240,0.3)';                        // moon glint
+    g.beginPath(); g.moveTo(10, 44); g.lineTo(34, 10); g.lineTo(42, 10);
+    g.lineTo(16, 48); g.closePath(); g.fill();
+    g.fillStyle = '#3a2c18'; g.fillRect(30, 10, 4, 38);           // mullion
+    // planks nailed over it
+    for (const [ty, rot] of [[18, 0.12], [34, -0.1]]) {
+      g.save(); g.translate(32, ty); g.rotate(rot);
+      g.fillStyle = '#7c5c34'; g.fillRect(-30, -4.5, 60, 9);
+      g.fillStyle = 'rgba(0,0,0,0.28)'; g.fillRect(-30, 3, 60, 1.5);
+      g.fillStyle = '#26262a';
+      g.fillRect(-26, -1.5, 2, 3); g.fillRect(24, -1.5, 2, 3);
+      g.restore();
+    }
+    g.fillStyle = '#8a7c5c'; g.fillRect(4, 52, 56, 5);            // sill
   });
 
   function darken(src, amt) {
@@ -150,7 +172,7 @@ export const Textures = (() => {
     return c;
   }
 
-  const walls = [null, brick(), lockers(), chalkboard(), gymMetal(), posterWall(), exitDoor(), cafWall()];
+  const walls = [null, wallpaper(), paneling(), kitchenTile(), bathTile(), bookshelf(), frontDoor(), boardedWindow()];
   const wallsDark = walls.map(w => w ? darken(w, 0.32) : null);
 
   // ====================================================== floor & ceiling

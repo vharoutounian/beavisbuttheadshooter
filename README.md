@@ -74,11 +74,16 @@ Pick your dumbass, click **DEPLOY**, and click the screen to grab mouse lock.
   SLIDE KILL…), floating damage numbers, kill feed, rotating minimap,
   rank progression with an XP bar (PRIVATE BUTTMUNCH → THE GREAT CORNHOLIO,
   career XP persists), and killstreaks at 3/5/7 kills.
-- **Waves at Highland High** — posers, skaters (fast, erratic, swing
-  skateboards), jocks, hall monitors, charging Coach Buzzcut Jr., and
-  Principal McDoom as the boss every 5th wave with a top-bar health meter.
-  From wave 8, armored **elites** appear. Attack tokens keep the mob honest —
-  only a few enemies engage at once while the rest flank and orbit.
+- **Defend the house** — waves of intruders kick in the front door, the
+  back door, and the boarded windows of a run-down suburban house:
+  posers, skaters (fast, erratic, swing skateboards), jocks, hall
+  monitors, charging Coach Buzzcut Jr., and Principal McDoom as the boss
+  every 5th wave with a top-bar health meter. From wave 8, armored
+  **elites** appear. Attack tokens keep the mob honest — only a few
+  enemies engage at once while the rest flank and orbit through the
+  rooms. The floor plan: living room (couch, flickering TV, braided
+  rug, bookshelves), kitchen with counters, bedroom, bathroom, and a
+  dining room — furniture blocks movement and bullets.
 - **Audio** — layered synthesized gunshots, positional stereo panning
   (footsteps and shots pan by direction), UI sounds, and a dynamic tension
   music bed that intensifies with the horde.

@@ -1097,7 +1097,7 @@ export const Game = (() => {
     S.spawnTimer = 1;
     S.shopOpen = false;
     const boss = n % 5 === 0;
-    setAnnounce(`WAVE ${n}`, boss ? 'THE PRINCIPAL IS COMING' : `${S.toSpawn} DIPWADS INBOUND`);
+    setAnnounce(`WAVE ${n}`, boss ? 'THE PRINCIPAL IS AT THE DOOR' : `${S.toSpawn} DIPWADS BREAKING IN`);
     Sound.play('waveHorn');
     Sound.say(boss ? pick(lines().boss) : pick(lines().wave), S.player.character);
     if (boss) {
