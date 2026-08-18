@@ -1,8 +1,10 @@
 # Beavis & Butt-Head Shooter — Huh-Huh Warfare
 
-A modern, Call-of-Duty-flavored first-person wave shooter starring Beavis and
-Butt-Head, rendered in clean stylized 3D (WebGL). Zero asset files — every
-texture, character, portrait, and sound is generated in code at runtime.
+A dark-gothic, isometric action-RPG wave shooter starring Beavis and
+Butt-Head: torch-lit night arena, cursor-aimed combat, crits, loot economy,
+and a visible hero — rendered in stylized 3D (WebGL). Zero asset files —
+every texture, character, portrait, and sound is generated in code at
+runtime.
 
 Built on the same stack as a modern three.js production:
 [three](https://threejs.org/) `0.185` + the pmndrs
@@ -34,17 +36,15 @@ Pick your dumbass, click **DEPLOY**, and click the screen to grab mouse lock.
 
 | Input | Action |
 | --- | --- |
-| `WASD` | Move |
-| Mouse | Aim / fire |
-| Right mouse (hold) | Aim down sights (sniper scopes in) |
+| `WASD` | Move (screen-relative) |
+| Mouse | Aim — the hero faces the cursor; click to fire |
+| Right mouse / `G` | Grenade at the cursor (farther cursor = longer throw) |
 | `Shift` | Sprint |
-| `C` / `Ctrl` | Crouch — press while sprinting to **slide** |
+| `C` / `Ctrl` | **Dodge-slide** while sprinting |
 | `R` | Reload |
-| `G` | Throw grenade (look up to throw farther) |
 | `Tab` / `B` | Shop (between waves) |
 | `1`–`5` / wheel | Switch weapon |
 | `P` / `Esc` | Pause |
-| Arrow keys | Turn / move (trackpad fallback) |
 | `M` / `V` / `N` | Toggle SFX / voice / music |
 
 ## What's in it
@@ -59,10 +59,10 @@ Pick your dumbass, click **DEPLOY**, and click the screen to grab mouse lock.
   Boomstick, and the Dillweed .50 bolt sniper with a full scope overlay.
   Magazines, reserves, damage falloff, spread, recoil, tracers, shell
   casings, and bullet-hole decals.
-- **Modern movement & gunfeel** — sprint, slide, crouch, ADS with true
-  iron-sight alignment, weapon sway/inertia, camera roll on strafe and
-  slide, real vertical aim with **headshots** (look up at heads — pitch
-  matters), and lower profile means enemies miss more.
+- **ARPG combat** — a fixed-angle isometric camera with a gentle
+  cursor-lean, screen-relative movement, sprint and dodge-slides, and
+  cursor-aimed hitscan with **critical hits**, tracers, and floating
+  damage numbers.
 - **The economy** — kills pay cash; between waves hit `Tab` for the School
   Store: buy weapons, ammo, armor plates, grenades, and three perks
   (Winger Grip, Nacho Body, Fast Hands).
@@ -95,20 +95,22 @@ Pick your dumbass, click **DEPLOY**, and click the screen to grab mouse lock.
   occlusion, HDR bloom, AGX filmic tone mapping, a color grade
   (saturation, contrast), vignette, film grain, and SMAA — toggleable in
   settings.
-- **3D first-person weapons**: all five guns are real 3D models riding
-  the camera — with your character's arms and hands on them — with hip
-  and true iron-sight ADS positions, sway, recoil kick, reload and swap
-  animation, sprint/slide poses, and a muzzle flash that lights the
-  walls.
+- **A visible hero**: Beavis or Butt-Head is on screen as a sculpted
+  third-person rig (pompadour and all), holding the current weapon, with
+  walk/recoil/reload animation, a muzzle flash that lights the walls,
+  and a death fall.
+- **Night arena**: full moon with god rays, flickering wall torches
+  casting warm pools of light, drifting embers, lit windows on the
+  skyline towers, and close atmospheric fog.
 - **Human-proportioned 3D characters**: each enemy type is a
   procedurally-assembled rig (letterman jackets, mohawks, backwards
   caps, sashes, skateboards, elite armor + helmets) with face textures,
   walk/attack animation, telegraphed windups, and physical death falls.
-- **True 3D combat**: shots raycast through the actual camera with
-  separate head/body colliders, 3D tracers, bullet-hole decals stuck to
-  surfaces with their normals, shell casings, and grenades that arc in
-  3D. Crates and barriers block movement and bullets but you can shoot
-  over them.
+- **Cursor-aimed combat**: the mouse is projected onto the ground plane,
+  the hero faces it, and shots run a grid raycast with per-enemy circle
+  intersection — crits, 3D tracers, bullet-hole decals stuck to walls,
+  and grenades that arc toward the cursor. Crates and barriers block
+  movement and bullets.
 - **Native-resolution + dynamic scaling**: renders at your display's
   resolution (devicePixelRatio-aware, up to 1440p internal) and steps
   the internal resolution down/up automatically to hold frame rate. The
